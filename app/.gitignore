@@ -1,0 +1,9 @@
+# python
+__pycache__/
+.pytest_cache/
+venv/
+*.egg-info/
+build/
+
+# build-metadata
+dcm_frontend/build_info.py

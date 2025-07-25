@@ -1,0 +1,293 @@
+import { useEffect, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
+import { useNavigate } from "react-router";
+import { Table, Button, Spinner } from "flowbite-react";
+import { FiPlay, FiEye, FiEdit3 } from "react-icons/fi";
+
+import t from "../../utils/translation";
+import { formatJobConfigStatus } from "../../utils/util";
+import { reformatDatetime } from "../../utils/dateTime";
+import { JobConfig } from "../../types";
+import useGlobalStore from "../../store";
+import { host, credentialsValue, devMode } from "../../App";
+import DebugJobModal from "./DebugJobModal";
+import NewJobConfigModal, {
+  useNewJobConfigFormStore,
+} from "./NewJobConfigModal";
+
+export interface TableCellProps {
+  config?: JobConfig;
+}
+
+export function NameCell({ config }: TableCellProps) {
+  if (!config) return <Table.HeadCell>{t("Titel")}</Table.HeadCell>;
+  return <Table.Cell>{config.name ?? "-"}</Table.Cell>;
+}
+
+export function TemplateCell({ config }: TableCellProps) {
+  const templates = useGlobalStore((state) => state.template.templates);
+  if (!config) return <Table.HeadCell>{t("Template")}</Table.HeadCell>;
+  return (
+    <Table.Cell>
+      {config.templateId !== undefined &&
+      templates[config.templateId] !== undefined
+        ? templates[config.templateId].name
+        : t("Unbekannt")}
+    </Table.Cell>
+  );
+}
+
+export function WorkspaceCell({ config }: TableCellProps) {
+  const workspaces = useGlobalStore((state) => state.workspace.workspaces);
+  if (!config) return <Table.HeadCell>{t("Arbeitsbereich")}</Table.HeadCell>;
+  return (
+    <Table.Cell>
+      {config.workspaceId !== undefined &&
+      workspaces[config.workspaceId] !== undefined
+        ? workspaces[config.workspaceId].name
+        : t("Unbekannt")}
+    </Table.Cell>
+  );
+}
+
+export function LatestExecCell({ config }: TableCellProps) {
+  const [loading, setLoading] = useState(false);
+  const [jobInfos, fetchJobInfo] = useGlobalStore(
+    useShallow((state) => [state.job.jobInfos, state.job.fetchJobInfo])
+  );
+
+  // load latestExec-info
+  useEffect(() => {
+    if (!config?.latestExec) return;
+    if (!jobInfos[config.latestExec]) {
+      setLoading(true);
+      fetchJobInfo({
+        token: config?.latestExec,
+        onSuccess: () => setLoading(false),
+      });
+    }
+    // eslint-disable-next-line
+  }, [config?.latestExec, fetchJobInfo]);
+
+  if (!config) return <Table.HeadCell>{t("Letzter Lauf")}</Table.HeadCell>;
+
+  return (
+    <Table.Cell>
+      {loading ? (
+        <Spinner size="xs" />
+      ) : (
+        reformatDatetime(jobInfos[config.latestExec ?? ""]?.datetimeStarted, {
+          devMode,
+        })
+      )}
+    </Table.Cell>
+  );
+}
+
+export function ScheduledExecCell({ config }: TableCellProps) {
+  if (!config) return <Table.HeadCell>{t("Nächster Lauf")}</Table.HeadCell>;
+  return (
+    <Table.Cell>
+      {reformatDatetime(config.scheduledExec, { devMode })}
+    </Table.Cell>
+  );
+}
+
+export function ScheduleCell({ config }: TableCellProps) {
+  // FIXME: consider moving this to share definition with schedule-form in
+  // 'New Job Config'-wizard
+  const scheduleTypesMap: Record<string, string> = {
+    day: "täglich",
+    week: "wöchentlich",
+    month: "monatlich",
+  };
+  if (!config) return <Table.HeadCell>{t("Wiederholung")}</Table.HeadCell>;
+  return (
+    <Table.Cell>
+      {config.schedule?.active
+        ? config.schedule.repeat?.unit
+          ? t(scheduleTypesMap[config!.schedule.repeat.unit])
+          : t("einmalig")
+        : "-"}
+    </Table.Cell>
+  );
+}
+
+export function StatusCell({ config }: TableCellProps) {
+  if (!config) return <Table.HeadCell>{t("Status")}</Table.HeadCell>;
+  return <Table.Cell>{t(formatJobConfigStatus(config))}</Table.Cell>;
+}
+
+export function ArchivedRecordsCell({ config }: TableCellProps) {
+  const [records, setRecords] = useState<null | number>(null);
+  const fetchRecordsByJobConfig = useGlobalStore(
+    (state) => state.job.fetchRecordsByJobConfig
+  );
+
+  useEffect(() => {
+    if (!config) return;
+    fetchRecordsByJobConfig({
+      jobConfigId: config.id,
+      success: "true",
+      onSuccess: (records) => setRecords(records.length),
+      onFail: (error) => alert(error),
+    });
+  }, [config, fetchRecordsByJobConfig]);
+
+  if (!config) return <Table.HeadCell>{t("Archivierte IEs")}</Table.HeadCell>;
+  return <Table.Cell>{records ?? <Spinner size="xs" />}</Table.Cell>;
+}
+
+export function IssuesCell({ config }: TableCellProps) {
+  const [issues, setIssues] = useState<null | number>(null);
+  useEffect(() => {
+    if (!config) return;
+    fetch(
+      host +
+        "/api/curator/job/records?" +
+        new URLSearchParams({ id: config.id, success: "false" }).toString(),
+      {
+        credentials: credentialsValue,
+      }
+    )
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Unexpected response (${response.statusText}).`);
+        }
+        return response.json();
+      })
+      .then((json) => {
+        setIssues(json.length);
+      })
+      .catch((error) => {
+        alert(error.message);
+      });
+  }, [config]);
+
+  if (!config) return <Table.HeadCell>{t("Issues")}</Table.HeadCell>;
+  return <Table.Cell>{issues ?? <Spinner size="xs" />}</Table.Cell>;
+}
+
+export function ActionsCell({ config }: TableCellProps) {
+  const acl = useGlobalStore((state) => state.session.acl);
+  const workspaces = useGlobalStore((state) => state.workspace.workspaces);
+  const templates = useGlobalStore((state) => state.template.templates);
+  const fetchJobConfig = useGlobalStore((state) => state.job.fetchJobConfig);
+  const [loadingJobExecution, setLoadingJobExecution] = useState(false);
+  const [showNewJobConfigModal, setShowNewJobConfigModal] = useState(false);
+  const initFromConfig = useNewJobConfigFormStore(
+    (state) => state.initFromConfig
+  );
+  const navigate = useNavigate();
+
+  // devMode-Modal for tracking job progress
+  const [token, setToken] = useState<string | null>(null);
+  const [showDebugJobModal, setShowDebugJobModal] = useState(false);
+
+  if (!config)
+    return <Table.HeadCell className="w-1">{t("Aktionen")}</Table.HeadCell>;
+  return (
+    <Table.Cell>
+      {token ? (
+        <DebugJobModal
+          show={showDebugJobModal}
+          initialToken={token}
+          onClose={() => {
+            setToken(null);
+            setShowDebugJobModal(false);
+          }}
+        />
+      ) : null}
+      <div className="flex flex-row space-x-2">
+        {acl?.CREATE_JOB ? (
+          <Button
+            className="p-0"
+            disabled={loadingJobExecution || config.status !== "ok"}
+            onClick={() => {
+              setLoadingJobExecution(true);
+              fetch(
+                host +
+                  "/api/curator/job?" +
+                  new URLSearchParams({ id: config.id }).toString(),
+                {
+                  method: "POST",
+                  credentials: credentialsValue,
+                }
+              )
+                .then((response) => {
+                  setLoadingJobExecution(false);
+                  if (!response.ok) {
+                    throw new Error(
+                      `Unexpected response (${response.statusText}).`
+                    );
+                  }
+                  return response.json();
+                })
+                .then((json) => {
+                  // FIXME: replace when ready
+                  fetchJobConfig({ jobConfigId: config.id });
+                  setToken(json.value);
+                  setShowDebugJobModal(true);
+                })
+                .catch((error) => {
+                  // FIXME: replace when ready
+                  alert(error.message);
+                });
+            }}
+          >
+            {loadingJobExecution ? <Spinner size="sm" /> : <FiPlay size={20} />}
+          </Button>
+        ) : null}
+        {acl?.READ_JOBCONFIG ? (
+          <Button
+            className="p-0"
+            onClick={() => navigate(`/job-details?id=${config.id}`)}
+          >
+            <FiEye size={20} />
+          </Button>
+        ) : null}
+        {acl?.MODIFY_JOBCONFIG ? (
+          <>
+            <Button
+              className="p-0"
+              onClick={() => {
+                if (
+                  config === undefined ||
+                  config.workspaceId === undefined ||
+                  workspaces[config.workspaceId] === undefined ||
+                  config.templateId === undefined ||
+                  templates[config.templateId] === undefined
+                ) {
+                  alert(
+                    t(
+                      "Etwas ist schief gelaufen, eine der Konfigurationen für Job, Arbeitsbereich oder Template fehlt."
+                    )
+                  );
+                  return;
+                }
+                initFromConfig(
+                  config,
+                  templates[config.templateId],
+                  workspaces[config.workspaceId]
+                );
+                setShowNewJobConfigModal(true);
+              }}
+            >
+              <FiEdit3 size={20} />
+            </Button>
+            <NewJobConfigModal
+              show={showNewJobConfigModal}
+              onClose={() => setShowNewJobConfigModal(false)}
+              tab={2}
+            />
+          </>
+        ) : null}
+      </div>
+    </Table.Cell>
+  );
+}
+
+export function IdCell({ config }: TableCellProps) {
+  if (!config) return <Table.HeadCell>{t("ID")}</Table.HeadCell>;
+  return <Table.Cell>{config.id}</Table.Cell>;
+}
