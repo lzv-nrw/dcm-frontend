@@ -8,7 +8,7 @@ import { formatJobConfigStatus } from "../../utils/util";
 import { JobConfig } from "../../types";
 import useGlobalStore from "../../store";
 import { devMode } from "../../App";
-import NewJobConfigModal from "./NewJobConfigModal";
+import CUModal from "./CUModal/Modal";
 import * as TableCells from "./TableCells";
 import DebugJobModal from "./DebugJobModal";
 
@@ -92,7 +92,7 @@ export default function JobsScreen({ useACL = false }: JobsScreenProps) {
   const [searchFor, setSearchFor] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<string>("name");
 
-  const [showNewJobConfigModal, setShowNewJobConfigModal] = useState(false);
+  const [showCUModal, setShowCUModal] = useState(false);
   const [showDebugJobModal, setShowDebugJobModal] = useState(false);
 
   const workspaceStore = useGlobalStore((state) => state.workspace);
@@ -211,13 +211,13 @@ export default function JobsScreen({ useACL = false }: JobsScreenProps) {
             <>
               <Button
                 type="button"
-                onClick={() => setShowNewJobConfigModal(true)}
+                onClick={() => setShowCUModal(true)}
               >
                 {t("Neuen Job anlegen")}
               </Button>
-              <NewJobConfigModal
-                show={showNewJobConfigModal}
-                onClose={() => setShowNewJobConfigModal(false)}
+              <CUModal
+                show={showCUModal}
+                onClose={() => setShowCUModal(false)}
               />
             </>
           )}
@@ -253,7 +253,7 @@ export default function JobsScreen({ useACL = false }: JobsScreenProps) {
                     <option key={workspace} value={workspace}>
                       {truncateText(
                         workspaceStore.workspaces[workspace]?.name ?? "",
-                        100
+                        30
                       )}
                     </option>
                   ))}

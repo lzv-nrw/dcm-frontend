@@ -7,7 +7,7 @@ import { truncateText } from "../../utils/forms";
 import { HotfolderTemplateInfo, Template } from "../../types";
 import useGlobalStore from "../../store";
 import TemplateItem from "./TemplateItem";
-import NewTemplateModal from "./NewTemplateModal";
+import CUModal from "./CUModal/Modal";
 
 type SortBy = keyof Template;
 
@@ -147,7 +147,7 @@ export default function TemplatesScreen({
             {t("Template erstellen")}
           </Button>
         )}
-        <NewTemplateModal
+        <CUModal
           show={showNewTemplateModal}
           onClose={() => setShowNewTemplateModal(false)}
         />
@@ -187,7 +187,7 @@ export default function TemplatesScreen({
                     <option key={workspace} value={workspace}>
                       {truncateText(
                         workspaceStore.workspaces[workspace].name,
-                        100
+                        30
                       )}
                     </option>
                   ))}
@@ -217,11 +217,12 @@ export default function TemplatesScreen({
                 >
                   <option value="name">{t("Titel")}</option>
                   <option value="type">{t("Verbindungsart")}</option>
+                  <option value="status">{t("Status")}</option>
                 </Select>
               </div>
             </div>
           </div>
-          <div className="my-10">
+          <div className="py-5">
             {Object.values(templateStore.templates)
               .filter((template) => hasWorkspace(filter, template))
               .filter((template) =>

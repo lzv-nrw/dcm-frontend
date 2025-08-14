@@ -1,6 +1,7 @@
 """Test-module for user_config-endpoints."""
 
 from datetime import timedelta
+from uuid import uuid4
 
 import pytest
 from dcm_common.util import now
@@ -66,9 +67,7 @@ def test_create_user_metadata(
         },
     ).json.get("id")
 
-    response = client_w_login.get(
-        "/api/admin/user?id=" + user_id
-    )
+    response = client_w_login.get("/api/admin/user?id=" + user_id)
     assert response.json.get("userCreated") == DemoData.user0
     assert response.json.get("datetimeCreated") != datetime_created
 
@@ -122,10 +121,43 @@ def test_modify_user(
     """Minimal test of PUT /user-endpoint."""
 
     run_service(app=backend_app, port=backend_port, probing_path="ready")
+
+    # change user1 (no groups -> ok since no admin before)
+    assert (
+        client_w_login.put(
+            "/api/admin/user",
+            json=minimal_user_config
+            | {"username": "einstein", "id": DemoData.user1},
+        ).status_code
+        == 200
+    )
+    # not allowed because user0 is the last account to create users
     assert (
         client_w_login.put(
             "/api/admin/user",
             json=minimal_user_config | {"id": DemoData.user0},
+        ).status_code
+        == 403
+    )
+    # make user1 into admin as well
+    assert (
+        client_w_login.put(
+            "/api/admin/user",
+            json=minimal_user_config
+            | {
+                "username": "einstein",
+                "id": DemoData.user1,
+                "groups": [{"id": "admin"}],
+            },
+        ).status_code
+        == 200
+    )
+    # retry removing groups from user0
+    assert (
+        client_w_login.put(
+            "/api/admin/user",
+            json=minimal_user_config
+            | {"username": "admin", "id": DemoData.user0},
         ).status_code
         == 200
     )
@@ -153,8 +185,59 @@ def test_modify_user_metadata(
         },
     )
 
-    response = client_w_login.get(
-        "/api/admin/user?id=" + DemoData.user1
-    )
+    response = client_w_login.get("/api/admin/user?id=" + DemoData.user1)
     assert response.json.get("userModified") == DemoData.user0
     assert response.json.get("datetimeModified") != datetime_modified
+
+
+def test_delete_user(
+    run_service,
+    backend_app,
+    backend_port,
+    client_w_login,
+):
+    """Test of DELETE /user-endpoint."""
+
+    run_service(app=backend_app, port=backend_port, probing_path="ready")
+
+    # missing 'id' argument
+    assert (
+        client_w_login.delete(f"/api/admin/user?arg={DemoData.user1}").text
+        == "Missing id."
+    )
+
+    # DemoData.user1 exists
+    assert (
+        client_w_login.get(f"/api/admin/user?id={DemoData.user1}").json[
+            "status"
+        ]
+        == "ok"
+    )
+    # delete DemoData.user1
+    assert (
+        client_w_login.delete(
+            f"/api/admin/user?id={DemoData.user1}"
+        ).status_code
+        == 200
+    )
+    # DemoData.user1 has been (soft) deleted
+    assert (
+        client_w_login.get(f"/api/admin/user?id={DemoData.user1}").json[
+            "status"
+        ]
+        == "deleted"
+    )
+
+    # deleting a non-existent user returns an error
+    assert (
+        client_w_login.delete(f"/api/admin/user?id={uuid4()}").status_code
+        == 404
+    )
+
+    # last user with permissions to create users cannot be deleted that way
+    assert (
+        client_w_login.delete(
+            f"/api/admin/user?id={DemoData.user0}"
+        ).status_code
+        == 403
+    )

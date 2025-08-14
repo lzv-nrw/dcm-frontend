@@ -3,7 +3,11 @@ import { Button, Select, Textarea, TextInput, Tooltip } from "flowbite-react";
 import { FiMinus } from "react-icons/fi";
 
 import t from "../../utils/translation";
-import { getTextInputColor, textInputLimit } from "../../utils/forms";
+import {
+  getTextInputColor,
+  textInputLimit,
+  isValidRegex,
+} from "../../utils/forms";
 import {
   BaseOperation,
   OperationFormSelectInput,
@@ -43,7 +47,7 @@ function MultiRowInput({
               ok:
                 focus === `replace-regex-textinput-${index}`
                   ? null
-                  : item.regex !== "",
+                  : item.regex !== "" && isValidRegex(item.regex),
             })}
             maxLength={textInputLimit.unlimited}
             onChange={(e) =>

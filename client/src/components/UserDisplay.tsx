@@ -81,7 +81,7 @@ export default function UserDisplay({
         <Avatar
           className="absolute"
           alt="user avatar"
-          img={createGravatar(userInfo.email)}
+          img={userInfo.email ? createGravatar(userInfo.email) : undefined}
           rounded
         />
         <div className="flex flex-col items-start ml-12 overflow-x-hidden space-y-1">
@@ -89,7 +89,7 @@ export default function UserDisplay({
             {userInfo.firstname + " " + userInfo.lastname}
           </p>
           <p className="text-sm text-gray-500 dcm-clamp-text">
-            {userInfo.username + ", " + userInfo.email}
+            {userInfo.username + (userInfo.email ? ", " + userInfo.email : "")}
           </p>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import { Sidebar } from "flowbite-react";
-import { FiCheckCircle, FiAlertCircle } from "react-icons/fi";
+import { FiCheckCircle, FiAlertCircle, FiEdit } from "react-icons/fi";
 
 export interface FormSectionComponentProps {
   name: string;
@@ -12,6 +12,7 @@ export interface FormSection {
   tab: number;
   name: string;
   ok?: null | boolean;
+  showIcon?: boolean;
   setOk?: (ok: null | boolean) => void;
   Component: React.FC<FormSectionComponentProps>;
 }
@@ -30,69 +31,70 @@ export default function SectionedForm({
   sidebarWidth,
 }: SectionedFormProps) {
   return (
-    <div>
-      <div className="flex flex-row">
-        <Sidebar className="select-none [&>div]:bg-transparent">
-          <Sidebar.Items>
-            <Sidebar.ItemGroup>
-              {sections.map((sec) => (
-                <Sidebar.Item
-                  key={sec.tab}
-                  onClick={() => setTab?.(sec.tab)}
-                  className={tab === sec.tab && "hover:bg-transparent"}
+    <div className="h-full flex flex-row">
+      <Sidebar className="select-none [&>div]:bg-transparent">
+        <Sidebar.Items>
+          <Sidebar.ItemGroup>
+            {sections.map((sec) => (
+              <Sidebar.Item
+                key={sec.tab}
+                onClick={() => setTab?.(sec.tab)}
+                className={tab === sec.tab && "hover:bg-transparent"}
+              >
+                <div
+                  className={
+                    "flex flex-row justify-between items-center " +
+                    (sidebarWidth ?? "w-auto")
+                  }
                 >
-                  <div
+                  <p
                     className={
-                      "flex flex-row justify-between items-center " +
-                      (sidebarWidth ?? "w-auto")
+                      tab === sec.tab ? "font-semibold" : "hover:cursor-pointer"
                     }
                   >
-                    <p
-                      className={
-                        tab === sec.tab
-                          ? "font-semibold"
-                          : "hover:cursor-pointer"
-                      }
-                    >
-                      {sec.name}
-                    </p>
-                    {tab === sec.tab ? null : sec.ok === undefined ||
-                      sec.ok === null ? null : sec.ok ? (
-                      <FiCheckCircle
-                        aria-label="valid"
-                        size="20"
-                        className="text-green-500"
-                      />
-                    ) : (
-                      <FiAlertCircle
-                        aria-label="invalid"
-                        size="20"
-                        className="text-red-500"
-                      />
-                    )}
-                  </div>
-                </Sidebar.Item>
-              ))}
-            </Sidebar.ItemGroup>
-          </Sidebar.Items>
-        </Sidebar>
-        <div className="m-2 w-full">
-          {sections.map((sec) => (
-            <div
-              key={sec.tab}
-              className={
-                "flex flex-col space-y-2 " + (sec.tab === tab ? "" : "hidden")
-              }
-            >
-              <sec.Component
-                name={sec.name}
-                ok={sec.ok}
-                setOk={sec.setOk}
-                active={sec.tab === tab}
-              />
-            </div>
-          ))}
-        </div>
+                    {sec.name}
+                  </p>
+                  {!(sec.showIcon ?? true) ? null : tab === sec.tab ? (
+                    <FiEdit
+                      aria-label="edit"
+                      size="20"
+                      className="text-yellow-500"
+                    />
+                  ) : sec.ok === undefined ? null : sec.ok ? (
+                    <FiCheckCircle
+                      aria-label="valid"
+                      size="20"
+                      className="text-green-500"
+                    />
+                  ) : (
+                    <FiAlertCircle
+                      aria-label="invalid"
+                      size="20"
+                      className="text-red-500"
+                    />
+                  )}
+                </div>
+              </Sidebar.Item>
+            ))}
+          </Sidebar.ItemGroup>
+        </Sidebar.Items>
+      </Sidebar>
+      <div className="p-2 w-full h-full overflow-y-auto">
+        {sections.map((sec) => (
+          <div
+            key={sec.tab}
+            className={
+              "flex flex-col space-y-2 " + (sec.tab === tab ? "" : "hidden")
+            }
+          >
+            <sec.Component
+              name={sec.name}
+              ok={sec.ok}
+              setOk={sec.setOk}
+              active={sec.tab === tab}
+            />
+          </div>
+        ))}
       </div>
     </div>
   );

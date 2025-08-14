@@ -126,7 +126,32 @@ class TemplateView(services.View):
                 and response.data.workspace_id not in workspaces
             ):
                 return Response("Forbidden", mimetype="text/plain", status=403)
-            return jsonify(response.data.to_dict()), 200
+
+            template = response.data.to_dict()
+
+            # get number of linked jobs
+            # use number to avoid limitations due to permissions (can be
+            # added later as separate property if needed)
+            response = call_backend(
+                endpoint=(
+                    self.backend_config_api.list_job_configs_with_http_info
+                ),
+                args=(template["id"],),
+                request_timeout=self.config.BACKEND_TIMEOUT,
+            )
+            if response.status_code == 200:
+                linked_jobs = len(response.data)
+            else:
+                print(
+                    "Failed to fetch linked job configurations for template "
+                    + f"'{template['id']}' ({template.get('name')})."
+                )
+                linked_jobs = None
+
+            return (
+                jsonify(template | {"linkedJobs": linked_jobs}),
+                200,
+            )
 
         @bp.route("/template", methods=["PUT"])
         @login_required
@@ -179,6 +204,52 @@ class TemplateView(services.View):
                         "datetimeModified": now().isoformat(),
                     }
                 ],
+                request_timeout=self.config.BACKEND_TIMEOUT,
+            )
+            if response.status_code == 200:
+                return Response(
+                    "OK",
+                    mimetype="text/plain",
+                    status=200,
+                )
+            return Response(
+                response.fail_reason,
+                mimetype="text/plain",
+                status=response.status_code,
+            )
+
+        @bp.route("/template", methods=["DELETE"])
+        @login_required
+        @requires_permission(*self.config.ACL.DELETE_TEMPLATE)
+        @generate_workspaces(*self.config.ACL.DELETE_TEMPLATE)
+        def delete_template(workspaces: Optional[Iterable[str]]):
+            response = call_backend(
+                endpoint=(
+                    self.backend_config_api.get_template_with_http_info
+                ),
+                args=[request.args.get("id", "")],
+                request_timeout=self.config.BACKEND_TIMEOUT,
+            )
+            if response.status_code != 200:
+                return Response(
+                    response.fail_reason,
+                    mimetype="text/plain",
+                    status=response.status_code
+                )
+
+            # enforce workspace-rules
+            if (
+                workspaces is not None
+                and response.data.workspace_id not in workspaces
+            ):
+                return Response("Forbidden", mimetype="text/plain", status=403)
+
+            # run query
+            response = call_backend(
+                endpoint=(
+                    self.backend_config_api.delete_template_with_http_info
+                ),
+                kwargs=request.args,
                 request_timeout=self.config.BACKEND_TIMEOUT,
             )
             if response.status_code == 200:

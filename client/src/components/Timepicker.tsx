@@ -7,7 +7,7 @@ import { formatTime24 } from "../utils/dateTime";
 
 interface TimepickerProps {
   time: Date | null;
-  onChange: React.Dispatch<React.SetStateAction<Date | null>>;
+  onChange: (time: Date | null) => void;
   className?: string;
   disabled?: boolean;
 }
@@ -25,7 +25,9 @@ export default function Timepicker({
 
   // update time on change
   useEffect(() => {
+    if (time?.getHours() === hours && time?.getMinutes() === minutes) return;
     onChange(new Date(0, 0, 1, hours, minutes));
+    // eslint-disable-next-line
   }, [hours, minutes, onChange]);
 
   return (
@@ -95,7 +97,7 @@ export default function Timepicker({
             </div>
             <div className="flex flex-row w-full space-x-4">
               <Button
-              className="w-1/2"
+                className="w-1/2"
                 size="sm"
                 onClick={() => {
                   setHours(new Date().getHours());
@@ -106,7 +108,7 @@ export default function Timepicker({
                 {t("Jetzt")}
               </Button>
               <Button
-              className="w-1/2"
+                className="w-1/2"
                 size="sm"
                 color="gray"
                 onClick={() => {

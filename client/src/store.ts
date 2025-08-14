@@ -52,6 +52,7 @@ export interface UserStore {
     useACL?: boolean;
     onSuccess?: () => void;
     onFail?: (error: string) => void;
+    replace?: boolean;
   }) => void;
 }
 
@@ -67,6 +68,7 @@ export interface TemplateStore {
     useACL?: boolean;
     onSuccess?: () => void;
     onFail?: (error: string) => void;
+    replace?: boolean;
   }) => void;
   hotfolderImportSources: Record<string, HotfolderImportSource>;
   fetchHotfolderImportSources: (p: {
@@ -103,6 +105,7 @@ export interface JobStore {
     useACL?: boolean;
     onSuccess?: () => void;
     onFail?: (error: string) => void;
+    replace?: boolean;
   }) => void;
   jobInfos: Record<string, JobInfo>;
   fetchJobInfo: (p: {
@@ -256,7 +259,7 @@ const useGlobalStore = create<GlobalStore>()((set, get) => ({
           onFail?.(error.message);
         });
     },
-    fetchList: ({ useACL = false, onSuccess, onFail }) => {
+    fetchList: ({ useACL = false, onSuccess, onFail, replace = false }) => {
       if (useACL && !get().session.acl?.READ_USERCONFIG) return;
       fetch(host + "/api/admin/users", { credentials: credentialsValue })
         .then((response) => {
@@ -266,7 +269,11 @@ const useGlobalStore = create<GlobalStore>()((set, get) => ({
           return response.json();
         })
         .then((json) => {
-          set((state) => ({ user: { ...state.user, userIds: json } }));
+          set((state) =>
+            replace
+              ? { user: { ...state.user, userIds: json, users: {} } }
+              : { user: { ...state.user, userIds: json } }
+          );
           onSuccess?.();
         })
         .catch((error) => {
@@ -305,7 +312,7 @@ const useGlobalStore = create<GlobalStore>()((set, get) => ({
           onFail?.(error.message);
         });
     },
-    fetchList: ({ useACL = false, onSuccess, onFail }) => {
+    fetchList: ({ useACL = false, onSuccess, onFail, replace = false }) => {
       if (useACL && !get().session.acl?.READ_TEMPLATE) return;
       fetch(host + "/api/admin/templates", { credentials: credentialsValue })
         .then((response) => {
@@ -318,6 +325,19 @@ const useGlobalStore = create<GlobalStore>()((set, get) => ({
           set((state) => ({
             template: { ...state.template, templateIds: json },
           }));
+          set((state) =>
+            replace
+              ? {
+                  template: {
+                    ...state.template,
+                    templateIds: json,
+                    templates: {},
+                  },
+                }
+              : {
+                  template: { ...state.template, templateIds: json },
+                }
+          );
           onSuccess?.();
         })
         .catch((error) => {
@@ -437,7 +457,7 @@ const useGlobalStore = create<GlobalStore>()((set, get) => ({
           onFail?.(error.message);
         });
     },
-    fetchList: ({ useACL = false, onSuccess, onFail }) => {
+    fetchList: ({ useACL = false, onSuccess, onFail, replace = false }) => {
       if (useACL && !get().session.acl?.READ_JOBCONFIG) return;
       fetch(host + "/api/curator/job-configs", {
         credentials: credentialsValue,
@@ -449,9 +469,15 @@ const useGlobalStore = create<GlobalStore>()((set, get) => ({
           return response.json();
         })
         .then((json) => {
-          set((state) => ({
-            job: { ...state.job, jobConfigIds: json },
-          }));
+          set((state) =>
+            replace
+              ? {
+                  job: { ...state.job, jobConfigIds: json, jobConfigs: {} },
+                }
+              : {
+                  job: { ...state.job, jobConfigIds: json },
+                }
+          );
           onSuccess?.();
         })
         .catch((error) => {

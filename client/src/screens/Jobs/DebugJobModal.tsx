@@ -135,12 +135,8 @@ export default function DebugJobModal({
   }
 
   return (
-    <Modal show={show} size="7xl" onClose={onClose} dismissible={true}>
-      <Modal.Header>
-        <span className="font-bold me-2">
-          {t("Verfolge Job ") + (token ? `'${token}'` : "")}
-        </span>
-      </Modal.Header>
+    <Modal show={show} width="7xl" onClose={onClose} dismissible={true}>
+      <Modal.Header title={t("Verfolge Job ") + (token ? `'${token}'` : "")} />
       <Modal.Body>
         <div className="space-y-2">
           {devMode && (
@@ -185,12 +181,12 @@ export default function DebugJobModal({
               )}
               {!jobInfos[token].report?.data?.records ? (
                 <div className="flex flex-row space-x-2 items-center">
-                <Spinner size="sm" />
-                <span className="text-sm text-gray-500">
-                  {t(
-                    "Der Job wurde gestartet, aber es sind noch keine Records verfügbar."
-                  )}
-                </span>
+                  <Spinner size="sm" />
+                  <span className="text-sm text-gray-500">
+                    {t(
+                      "Der Job wurde gestartet, aber es sind noch keine Records verfügbar."
+                    )}
+                  </span>
                 </div>
               ) : null}
               <Tabs variant="pills">

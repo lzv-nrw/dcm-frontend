@@ -16,12 +16,14 @@ export default function NewWidgetModal({
   const colorRef = useRef<HTMLSelectElement>(null);
 
   return (
-    <Modal show={show} size="sm" onClose={onClose} dismissible={true}>
-      <Modal.Header>
-        <div className="flex flex-wrap">
-          {t("Neues Widget")} - {Widget.name}
-        </div>
-      </Modal.Header>
+    <Modal
+      show={show}
+      width="2xl"
+      height="sm"
+      onClose={onClose}
+      dismissible
+    >
+      <Modal.Header title={t("Neues Widget") + "-" + Widget.name} />
       <Modal.Body>
         <div className="space-y-2">
           <div className="space-y-2">
@@ -41,27 +43,29 @@ export default function NewWidgetModal({
               <option value="bg-green-500">{t("grün")}</option>
             </Select>
           </div>
-          <div className="pt-2 flex flex-row space-x-2 justify-end">
-            <Button onClick={onClose}>{t("Abbrechen")}</Button>
-            <Button
-              onClick={() => {
-                onAddWidget?.({
-                  id: Widget.id,
-                  x: 0,
-                  y: 0,
-                  props: {
-                    title: titleRef.current?.value,
-                    color: colorRef.current?.value,
-                  },
-                });
-                onClose?.();
-              }}
-            >
-              {t("Anlegen")}
-            </Button>
-          </div>
         </div>
       </Modal.Body>
+      <Modal.Footer>
+        <div className="w-full flex flex-row space-x-2 justify-end">
+          <Button onClick={onClose}>{t("Abbrechen")}</Button>
+          <Button
+            onClick={() => {
+              onAddWidget?.({
+                id: Widget.id,
+                x: 0,
+                y: 0,
+                props: {
+                  title: titleRef.current?.value,
+                  color: colorRef.current?.value,
+                },
+              });
+              onClose?.();
+            }}
+          >
+            {t("Anlegen")}
+          </Button>
+        </div>
+      </Modal.Footer>
     </Modal>
   );
 }

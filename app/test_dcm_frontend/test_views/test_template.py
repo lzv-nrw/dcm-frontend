@@ -153,6 +153,34 @@ def test_get_template(
     )
 
 
+def test_get_template_linked_jobs(
+    run_service,
+    backend_app,
+    backend_port,
+    client_w_login,
+    minimal_template_config,
+):
+    """Minimal test of GET /template-endpoint."""
+
+    run_service(app=backend_app, port=backend_port, probing_path="ready")
+
+    # template 1
+    template1 = client_w_login.get(
+        "/api/admin/template?id=" + DemoData.template1
+    ).json
+    assert template1["linkedJobs"] == 1
+
+    # new template (no linked jobs)
+    new_template_id = client_w_login.post(
+        "/api/admin/template",
+        json=minimal_template_config | {"workspaceId": DemoData.workspace1},
+    ).json["id"]
+    new_template = client_w_login.get(
+        "/api/admin/template?id=" + new_template_id
+    ).json
+    assert new_template["linkedJobs"] == 0
+
+
 def test_modify_template(
     run_service,
     backend_app,
@@ -267,3 +295,37 @@ def test_get_template_import_sources(
     response = client_w_login.get("/api/admin/template/hotfolder-sources")
     assert response.status_code == 200
     assert len(response.json) == 2
+
+
+def test_delete_template(
+    run_service,
+    backend_app,
+    backend_port,
+    client_w_login,
+    minimal_template_config
+):
+    """Test of DELETE /template-endpoint."""
+
+    run_service(app=backend_app, port=backend_port, probing_path="ready")
+
+    # create template that can be deleted
+    template_id = client_w_login.post(
+        "/api/admin/template",
+        json=minimal_template_config,
+    ).json.get("id")
+
+    # check - delete -check
+    assert (
+        template_id
+        in client_w_login.get("/api/admin/templates").json
+    )
+    assert (
+        client_w_login.delete(
+            f"/api/admin/template?id={template_id}"
+        ).status_code
+        == 200
+    )
+    assert (
+        template_id
+        not in client_w_login.get("/api/admin/templates").json
+    )

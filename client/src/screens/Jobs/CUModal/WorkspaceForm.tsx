@@ -1,17 +1,15 @@
 import { useState } from "react";
 import { Card } from "flowbite-react";
 
-import t from "../../utils/translation";
-import { Workspace } from "../../types";
-import useGlobalStore from "../../store";
+import t from "../../../utils/translation";
+import { Workspace } from "../../../types";
+import useGlobalStore from "../../../store";
 
-interface NewJobConfigWorkspaceSelectProps {
+interface WorkspaceFormProps {
   onSelect?: (workspace: Workspace) => void;
 }
 
-export default function NewJobConfigWorkspaceSelect({
-  onSelect,
-}: NewJobConfigWorkspaceSelectProps) {
+export default function WorkspaceForm({ onSelect }: WorkspaceFormProps) {
   const workspaces = useGlobalStore((state) => state.workspace.workspaces);
   const [activeWorkspace, setActiveWorkspace] = useState<Workspace | null>(
     null

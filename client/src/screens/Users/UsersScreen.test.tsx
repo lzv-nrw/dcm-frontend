@@ -57,8 +57,8 @@ test("open new user modal", async () => {
   const view = await act(() => render(<UsersScreen />));
 
   // open modal
-  expect(view.queryByText(t("Neuen Nutzer anlegen"))).toBeTruthy();
-  fireEvent.click(view.getByText(t("Neuen Nutzer anlegen")));
+  expect(view.queryByText(t("Neuen Nutzer erstellen"))).toBeTruthy();
+  fireEvent.click(view.getByText(t("Neuen Nutzer erstellen")));
   await new Promise(process.nextTick);
 
   // assert
@@ -269,13 +269,13 @@ test.each([
   {
     acl: { VIEW_SCREEN_USERCONFIGS: true, CREATE_USERCONFIG: true },
     assert: (view: RenderResult) => {
-      expect(view.getByText(t("Neuen Nutzer anlegen"))).toBeInTheDocument();
+      expect(view.getByText(t("Neuen Nutzer erstellen"))).toBeInTheDocument();
     },
   },
   {
     acl: { VIEW_SCREEN_USERCONFIGS: true, CREATE_USERCONFIG: false },
     assert: (view: RenderResult) => {
-      expect(view.queryByText(t("Neuen Nutzer anlegen"))).toBeNull();
+      expect(view.queryByText(t("Neuen Nutzer erstellen"))).toBeNull();
     },
   },
   {

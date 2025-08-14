@@ -70,10 +70,11 @@ test.each([
     },
   },
   {
-    ok: null,
+    ok: false,
+    showIcon: false,
     assert: (form: RenderResult) => {
-      expect(form.queryByLabelText("valid")).toBeNull();
       expect(form.queryByLabelText("invalid")).toBeNull();
+      expect(form.queryByLabelText("valid")).toBeNull();
     },
   },
   {
@@ -90,7 +91,7 @@ test.each([
       expect(form.queryByLabelText("invalid")).toBeNull();
     },
   },
-])("indicates validation", async ({ ok, assert }) => {
+])("indicates validation", async ({ ok, showIcon, assert }) => {
   // render
   const form = await act(() =>
     render(
@@ -102,6 +103,7 @@ test.each([
             name: "section 1",
             Component: SomeFormSection,
             ok: ok,
+            showIcon: showIcon,
           },
         ]}
         setTab={() => {}}

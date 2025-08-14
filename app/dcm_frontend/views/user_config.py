@@ -2,6 +2,8 @@
 UserConfig View-class definition
 """
 
+import sys
+
 from flask import Blueprint, Response, request, jsonify
 from flask_login import login_required, current_user
 from dcm_common import services
@@ -92,10 +94,94 @@ class UserConfigView(services.View):
         @login_required
         @requires_permission(*self.config.ACL.MODIFY_USERCONFIG)
         def update_user():
+            if "id" not in request.json:
+                return Response(
+                    "Missing id.",
+                    mimetype="text/plain",
+                    status=400,
+                )
+
+            # mitigate lockout
+            # we do not need to account for all scenarios, but only want
+            # to mitigate the most likely one
+            # * get current configuration
             response = call_backend(
                 endpoint=(
-                    self.backend_config_api.update_user_with_http_info
+                    self.backend_config_api.get_user_config_with_http_info
                 ),
+                args=[request.json["id"]],
+                request_timeout=self.config.BACKEND_TIMEOUT,
+            )
+            if not response.status_code == 200:
+                return Response(
+                    response.fail_reason,
+                    mimetype="text/plain",
+                    status=response.status_code,
+                )
+            old_user_group_ids = map(
+                lambda g: g["id"], response.data.to_dict().get("groups", [])
+            )
+            new_user_group_ids = map(
+                lambda g: g["id"], request.json.get("groups", [])
+            )
+            # * get roles that allow creation of new users
+            admin_like_groups = [
+                rule.group_id
+                for rule in self.config.ACL.CREATE_USERCONFIG
+                if rule.TYPE == "simple"
+            ]
+            # * get list of users with those groups
+            if (
+                admin_like_groups
+                # skip if user had no relevant permissions beforehand
+                and any(
+                    group_id in admin_like_groups
+                    for group_id in old_user_group_ids
+                )
+                # skip if user (still) has relevant permission afterwards
+                and not any(
+                    group_id in new_user_group_ids
+                    for group_id in admin_like_groups
+                )
+            ):
+                response = call_backend(
+                    endpoint=self.backend_config_api.list_users_with_http_info,
+                    args=[",".join(admin_like_groups)],
+                    request_timeout=self.config.BACKEND_TIMEOUT,
+                )
+                if response.status_code != 200:
+                    return Response(
+                        "Error during lockout-mitigation: "
+                        + response.fail_reason,
+                        mimetype="text/plain",
+                        status=502,
+                    )
+                # * check if that list will be empty after removing the
+                #   requested configuration
+                if (
+                    len(
+                        [
+                            user
+                            for user in response.data
+                            if user != request.json["id"]
+                        ]
+                    )
+                    == 0
+                ):
+                    print(
+                        f"Stop modifying user '{request.json.get('username', request.json['id'])}'"
+                        + " to mitigate lockout.",
+                        file=sys.stderr,
+                    )
+                    return Response(
+                        "Cannot modify user due to lockout-mitigation.",
+                        mimetype="text/plain",
+                        status=403,
+                    )
+
+            # run request
+            response = call_backend(
+                endpoint=(self.backend_config_api.update_user_with_http_info),
                 args=[
                     remove_from_json(
                         request.json, ["userCreated", "datetimeCreated"]
@@ -105,6 +191,109 @@ class UserConfigView(services.View):
                         "datetimeModified": now().isoformat(),
                     }
                 ],
+                request_timeout=self.config.BACKEND_TIMEOUT,
+            )
+            if response.status_code == 200:
+                return Response(
+                    "OK",
+                    mimetype="text/plain",
+                    status=200,
+                )
+            return Response(
+                response.fail_reason,
+                mimetype="text/plain",
+                status=response.status_code,
+            )
+
+        @bp.route("/user", methods=["DELETE"])
+        @login_required
+        @requires_permission(*self.config.ACL.DELETE_USERCONFIG)
+        def delete_user():
+            if "id" not in request.args:
+                return Response(
+                    "Missing id.",
+                    mimetype="text/plain",
+                    status=400,
+                )
+
+            # mitigate lockout
+            # we do not need to account for all scenarios, but only want
+            # to mitigate the most likely one
+            # * get roles that allow creation of new users
+            admin_like_groups = [
+                rule.group_id
+                for rule in self.config.ACL.CREATE_USERCONFIG
+                if rule.TYPE == "simple"
+            ]
+            # * get list of users with those groups
+            if admin_like_groups:
+                response = call_backend(
+                    endpoint=self.backend_config_api.list_users_with_http_info,
+                    args=[",".join(admin_like_groups)],
+                    request_timeout=self.config.BACKEND_TIMEOUT,
+                )
+                if response.status_code != 200:
+                    return Response(
+                        "Error during lockout-mitigation: "
+                        + response.fail_reason,
+                        mimetype="text/plain",
+                        status=502,
+                    )
+                # * check if that list will be empty after removing the
+                #   requested configuration
+                if (
+                    len(
+                        [
+                            user
+                            for user in response.data
+                            if user != request.args["id"]
+                        ]
+                    )
+                    == 0
+                ):
+                    print(
+                        f"Stop deleting user '{request.args['id']}' to "
+                        + "mitigate lockout.",
+                        file=sys.stderr,
+                    )
+                    return Response(
+                        "Cannot delete user due to lockout-mitigation.",
+                        mimetype="text/plain",
+                        status=403,
+                    )
+
+            # run request
+            # * get current configuration
+            response = call_backend(
+                endpoint=(
+                    self.backend_config_api.get_user_config_with_http_info
+                ),
+                kwargs=request.args,
+                request_timeout=self.config.BACKEND_TIMEOUT,
+            )
+            if not response.status_code == 200:
+                return Response(
+                    response.fail_reason,
+                    mimetype="text/plain",
+                    status=response.status_code,
+                )
+            user = response.data.to_dict()
+            if user.get("status") == "deleted":
+                return Response(
+                    "User has been deleted already.",
+                    mimetype="text/plain",
+                    status=400,
+                )
+            # * update configuration
+            response = call_backend(
+                endpoint=self.backend_config_api.update_user_with_http_info,
+                args=[{
+                    "id": user["id"],
+                    "status": "deleted",
+                    "username": user.get("username"),
+                    "firstname": user.get("firstname"),
+                    "lastname": user.get("lastname"),
+                }],
                 request_timeout=self.config.BACKEND_TIMEOUT,
             )
             if response.status_code == 200:

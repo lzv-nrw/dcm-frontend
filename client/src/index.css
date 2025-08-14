@@ -5,3 +5,7 @@
 .dcm-clamp-text {
   @apply break-all line-clamp-1;
 }
+
+.dcm-clamp-text-2 {
+  @apply break-all line-clamp-2;
+}

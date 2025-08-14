@@ -6,7 +6,7 @@ import t from "../../utils/translation";
 import { truncateText } from "../../utils/forms";
 import { User, GroupMembership } from "../../types";
 import useGlobalStore from "../../store";
-import NewUserModal from "./NewUserModal";
+import CUModal from "./CUModal/Modal";
 import {
   TableCellProps,
   LastnameCell,
@@ -14,6 +14,7 @@ import {
   EMailCell,
   GroupsCell,
   UsernameCell,
+  ActionsCell,
 } from "./TableCells";
 
 enum ColumnIdentifier {
@@ -21,6 +22,7 @@ enum ColumnIdentifier {
   Firstname = "firstname",
   Email = "email",
   Username = "username",
+  Actions = "actions",
 }
 
 interface TableColumn {
@@ -39,6 +41,7 @@ const tableColumns: TableColumn[] = [
     name: t("Benutzername"),
     Cell: UsernameCell,
   },
+  { id: ColumnIdentifier.Actions, name: t("Aktion"), Cell: ActionsCell },
 ];
 
 interface UsersScreenProps {
@@ -48,9 +51,7 @@ interface UsersScreenProps {
 export default function UsersScreen({ useACL = false }: UsersScreenProps) {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>("");
-  const [sortBy, setSortBy] = useState<ColumnIdentifier>(
-    tableColumns[0].id ?? ColumnIdentifier.Lastname
-  );
+  const [sortBy, setSortBy] = useState<string>(ColumnIdentifier.Lastname);
   const [searchFor, setSearchFor] = useState<string | null>(null);
   const [showNewUserModal, setShowNewUserModal] = useState(false);
   const fetchGroups = useGlobalStore((state) => state.permission.fetchGroups);
@@ -157,10 +158,10 @@ export default function UsersScreen({ useACL = false }: UsersScreenProps) {
         <h3 className="text-4xl font-bold">{t("Nutzer")}</h3>
         {useACL && !acl?.CREATE_USERCONFIG ? null : (
           <Button type="button" onClick={() => setShowNewUserModal(true)}>
-            {t("Neuen Nutzer anlegen")}
+            {t("Neuen Nutzer erstellen")}
           </Button>
         )}
-        <NewUserModal
+        <CUModal
           show={showNewUserModal}
           onClose={() => setShowNewUserModal(false)}
         />
@@ -200,7 +201,7 @@ export default function UsersScreen({ useACL = false }: UsersScreenProps) {
                     <option key={workspace} value={workspace}>
                       {truncateText(
                         workspaceStore.workspaces[workspace]?.name ?? "",
-                        100
+                        30
                       )}
                     </option>
                   ))}
@@ -242,6 +243,16 @@ export default function UsersScreen({ useACL = false }: UsersScreenProps) {
                   }}
                 >
                   {tableColumns
+                    .filter(
+                      (item) =>
+                        item.id !== undefined &&
+                        [
+                          ColumnIdentifier.Lastname,
+                          ColumnIdentifier.Firstname,
+                          ColumnIdentifier.Username,
+                          ColumnIdentifier.Email,
+                        ].includes(item.id)
+                    )
                     .filter((item) => item.id !== undefined)
                     .map((item) => (
                       <option key={item.id} value={item.id}>
@@ -262,6 +273,7 @@ export default function UsersScreen({ useACL = false }: UsersScreenProps) {
                 </Table.Head>
                 <Table.Body className="divide-y">
                   {Object.values(userStore.users)
+                    .filter((user) => user.status !== "deleted")
                     .filter((user) => hasWorkspace(user.groups ?? [], filter))
                     .filter((user) =>
                       searchFor === null
@@ -286,12 +298,32 @@ export default function UsersScreen({ useACL = false }: UsersScreenProps) {
                             .toLowerCase()
                             .includes(searchFor.toLowerCase())
                     )
-                    .sort((a, b) =>
-                      (a[sortBy]?.toLowerCase() ?? 0) <
-                      (b[sortBy]?.toLowerCase() ?? 0)
-                        ? -1
-                        : 1
-                    )
+                    .sort((a, b) => {
+                      switch (sortBy) {
+                        case "lastname":
+                          return (a.lastname ?? "-").toLowerCase() <
+                            (b.lastname ?? "-").toLowerCase()
+                            ? -1
+                            : 1;
+                        case "firstname":
+                          return (a.firstname ?? "-").toLowerCase() <
+                            (b.firstname ?? "-").toLowerCase()
+                            ? -1
+                            : 1;
+                        case "username":
+                          return (a.username ?? "-").toLowerCase() <
+                            (b.username ?? "-").toLowerCase()
+                            ? -1
+                            : 1;
+                        case "email":
+                          return (a.email ?? "-").toLowerCase() <
+                            (b.email ?? "-").toLowerCase()
+                            ? -1
+                            : 1;
+                        default:
+                          return 1;
+                      }
+                    })
                     .map((user) => (
                       <Table.Row key={user.username}>
                         {tableColumns.map((item) => (

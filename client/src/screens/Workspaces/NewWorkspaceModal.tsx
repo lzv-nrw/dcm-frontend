@@ -1,11 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  Label,
-  TextInput,
-  Alert,
-  Button,
-  Spinner,
-} from "flowbite-react";
+import { Label, TextInput, Alert, Button, Spinner } from "flowbite-react";
 
 import t from "../../utils/translation";
 import useGlobalStore from "../../store";
@@ -52,8 +46,14 @@ export default function NewWorkspaceModal({
   }
 
   return (
-    <Modal show={show} size="sm" onClose={onClose} dismissible={true}>
-      <Modal.Header>{t("Arbeitsbereich erstellen")}</Modal.Header>
+    <Modal
+      show={show}
+      width="5xl"
+      height="xs"
+      onClose={onClose}
+      dismissible
+    >
+      <Modal.Header title={t("Arbeitsbereich erstellen")} />
       <Modal.Body>
         <div className="space-y-2">
           <div className="space-y-2">
@@ -72,60 +72,60 @@ export default function NewWorkspaceModal({
             />
           </div>
           {error ? <Alert color="failure">{error}</Alert> : null}
-          <div className="pt-2 flex flex-row space-x-2 justify-end">
-            <Button onClick={onClose}>{t("Abbrechen")}</Button>
-            <Button
-              onClick={() => {
-                let valid = true;
-                [{ ok: nameOk, setOk: setNameOk }].forEach(({ ok, setOk }) => {
-                  if (!ok) {
-                    setOk?.(false);
-                    valid = false;
-                    setError(
-                      t("Bitte füllen Sie alle erforderlichen Felder aus.")
-                    );
-                  }
-                });
-                if (!valid) return;
-
-                setError(null);
-                setSending(true);
-                fetch(host + "/api/admin/workspace", {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                  },
-                  credentials: credentialsValue,
-                  body: JSON.stringify({
-                    name: nameRef.current?.value,
-                  }),
-                })
-                  .then((response) => {
-                    setSending(false);
-                    if (response.ok) {
-                      fetchWorkspaceIds({});
-                      onClose?.();
-                      return;
-                    }
-                    return response.text();
-                  })
-                  .then((error_text) =>
-                    setError(t("Unerwartete Antwort") + ": " + error_text)
-                  )
-                  .catch((error) => {
-                    setSending(false);
-                    console.error(error);
-                    setError(
-                      t("Fehler beim Senden") + ": " + error?.toString()
-                    );
-                  });
-              }}
-            >
-              {sending ? <Spinner size="sm" /> : t("Erstellen")}
-            </Button>
-          </div>
         </div>
       </Modal.Body>
+      <Modal.Footer>
+        <div className="w-full flex flex-row space-x-2 justify-end">
+          <Button onClick={onClose}>{t("Abbrechen")}</Button>
+          <Button
+            onClick={() => {
+              let valid = true;
+              [{ ok: nameOk, setOk: setNameOk }].forEach(({ ok, setOk }) => {
+                if (!ok) {
+                  setOk?.(false);
+                  valid = false;
+                  setError(
+                    t("Bitte füllen Sie alle erforderlichen Felder aus.")
+                  );
+                }
+              });
+              if (!valid) return;
+
+              setError(null);
+              setSending(true);
+              fetch(host + "/api/admin/workspace", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                credentials: credentialsValue,
+                body: JSON.stringify({
+                  name: nameRef.current?.value,
+                }),
+              })
+                .then((response) => {
+                  setSending(false);
+                  if (response.ok) {
+                    fetchWorkspaceIds({});
+                    onClose?.();
+                    return;
+                  }
+                  return response.text();
+                })
+                .then((error_text) =>
+                  setError(t("Unerwartete Antwort") + ": " + error_text)
+                )
+                .catch((error) => {
+                  setSending(false);
+                  console.error(error);
+                  setError(t("Fehler beim Senden") + ": " + error?.toString());
+                });
+            }}
+          >
+            {sending ? <Spinner size="sm" /> : t("Erstellen")}
+          </Button>
+        </div>
+      </Modal.Footer>
     </Modal>
   );
 }

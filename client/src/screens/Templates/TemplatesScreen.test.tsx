@@ -94,7 +94,7 @@ test("open new template modal", async () => {
   await new Promise(process.nextTick);
 
   // assert
-  expect(view.getByText(t("Neues Template"))).toBeInTheDocument();
+  expect(view.getByText(t("Neues Template erstellen"))).toBeInTheDocument();
 });
 
 test("filter table", async () => {

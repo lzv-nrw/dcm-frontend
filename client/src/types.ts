@@ -41,8 +41,8 @@ export interface GroupMembership {
 export interface User {
   id: string;
   externalId?: string;
-  status?: "ok" | "inactive";
-  username: string;
+  status?: "ok" | "inactive" | "deleted";
+  username?: string;
   firstname?: string;
   lastname?: string;
   email?: string;
@@ -76,10 +76,15 @@ export interface HotfolderTemplateInfo {
   sourceId?: string;
 }
 
+export interface TransferUrlFilter {
+  regex: string;
+  path?: string;
+}
+
 export interface OAITemplateInfo {
   url?: string;
   metadataPrefix?: string;
-  transferUrlFilters?: { regex: string; path?: string }[];
+  transferUrlFilters?: TransferUrlFilter[];
 }
 
 export interface HotfolderImportSource {
@@ -89,13 +94,15 @@ export interface HotfolderImportSource {
   description?: string;
 }
 
+export type TemplateType = "oai" | "hotfolder" | "plugin";
+
 export interface Template {
-  status: "draft" | "ok";
+  status: ConfigStatus;
   id?: string;
   workspaceId?: string;
   name?: string;
   description?: string;
-  type?: "oai" | "hotfolder" | "plugin";
+  type?: TemplateType;
   additionalInformation?:
     | PluginTemplateInfo
     | HotfolderTemplateInfo
@@ -104,6 +111,7 @@ export interface Template {
   datetimeCreated?: string;
   userModified?: string;
   datetimeModified?: string;
+  linkedJobs?: number;
 }
 
 export interface Workspace {
@@ -117,11 +125,11 @@ export interface Workspace {
   datetimeModified?: string;
 }
 
-export type JobConfigStatus = "draft" | "ok";
+export type ConfigStatus = "draft" | "ok";
 
 export interface JobConfig {
   id: string;
-  status: JobConfigStatus;
+  status: ConfigStatus;
   workspaceId?: string;
   templateId?: string;
   latestExec?: string;

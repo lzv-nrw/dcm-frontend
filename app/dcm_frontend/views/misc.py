@@ -199,9 +199,9 @@ class MiscellaneousView(services.View):
                         break
                     tokens_count += 1
                     if tokens_count > self.config.OAI_MAX_RESUMPTION_TOKENS:
-                        raise TimeoutError(
-                            "Maxium number of resumption tokens exceeded "
-                            + f"({self.config.OAI_MAX_RESUMPTION_TOKENS}])."
+                        raise OverflowError(
+                            "Maximum number of resumption tokens exceeded "
+                            + f"({self.config.OAI_MAX_RESUMPTION_TOKENS})."
                         )
                 return sets
 

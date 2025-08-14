@@ -40,11 +40,11 @@ export function formatDateTimeStringsToISOString(
 ): string {
   return formatDateToISOString(new Date(`${dateStr}T${timeStr}`));
 }
+
 /**
- * Converts separate date and time strings into a full ISO 8601 date string.
+ * Converts date into an ISO 8601 date-time string.
  *
- * @param {string} dateStr - date in "YYYY-MM-DD" format.
- * @param {string} timeStr - time in "HH:mm" format (24-hour clock).
+ * @param {Date} date - date
  * @returns {string} - combined ISO 8601 date string, e.g. "2024-01-01T00:00:00+01:00".
  */
 export function formatDateToISOString(date: Date): string {

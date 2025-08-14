@@ -41,6 +41,7 @@ export default function WorkspaceDisplay({
   const acl = useGlobalStore((state) => state.session.acl);
 
   // find templates that are not yet assigned to a workspace
+  // and filter out template-drafts
   useEffect(() => {
     setUnassignedTemplates(
       Object.values(templates)
@@ -57,6 +58,7 @@ export default function WorkspaceDisplay({
               .reduce((prev, current) => prev.concat(current), [])
               .includes(template.id)
         )
+        .filter((template) => template.status === "ok")
     );
   }, [templates, workspaces]);
   // find users that are not yet assigned to this workspace
@@ -149,7 +151,11 @@ export default function WorkspaceDisplay({
           </div>
           <h5 className="font-semibold">{t("Templates")}</h5>
           <div className="p-2 my-2 grid grid-cols-2 gap-4 overflow-y-auto max-h-64">
-            {(workspace.templates ?? []).map((template) => (
+            {(
+              workspace.templates?.filter(
+                (template) => templates[template]?.status === "ok"
+              ) ?? []
+            ).map((template) => (
               <div
                 key={template}
                 className="flex items-start p-2 rounded-lg border border-gray-200 bg-white shadow-md select-none"

@@ -6,7 +6,7 @@ import t from "../utils/translation";
 
 interface DatepickerProps {
   date: Date | null;
-  onChange: React.Dispatch<React.SetStateAction<Date | null>>;
+  onChange: (date: Date | null) => void;
   className?: string;
   disabled?: boolean;
   locale?: string;

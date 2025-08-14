@@ -31,12 +31,13 @@ interface ModalProps {
   show: boolean;
   dismissible?: boolean;
   className?: string;
-  size?: sizes;
+  width?: sizes;
+  height?: sizes;
   children?: React.ReactNode;
   onClose?: () => void;
 }
 
-const SIZE_MAP: Record<sizes, string> = {
+const WIDTH_MAP: Record<sizes, string> = {
   xs: "max-w-xs",
   sm: "max-w-sm",
   md: "max-w-md",
@@ -49,11 +50,25 @@ const SIZE_MAP: Record<sizes, string> = {
   "6xl": "max-w-6xl",
   "7xl": "max-w-7xl",
 };
+const HEIGHT_MAP: Record<sizes, string> = {
+  xs: "h-[20rem]",
+  sm: "h-[24rem]",
+  md: "h-[28rem]",
+  lg: "h-[32rem]",
+  xl: "h-[36rem]",
+  "2xl": "h-[42rem]",
+  "3xl": "h-[48rem]",
+  "4xl": "h-[56rem]",
+  "5xl": "h-[64rem]",
+  "6xl": "h-[72rem]",
+  "7xl": "h-screen",
+};
 
 export default function Modal({
   show,
   dismissible,
-  size = "xl",
+  width = "xl",
+  height,
   className = "",
   children,
   onClose,
@@ -61,9 +76,12 @@ export default function Modal({
   const modalRef = useRef<HTMLDivElement>(null);
 
   // add Esc-key exiting to modal
-  const escapeCallback = useCallback((event: KeyboardEvent) => {
-    if (event.key === "Escape") onClose?.();
-  }, [onClose]);
+  const escapeCallback = useCallback(
+    (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose?.();
+    },
+    [onClose]
+  );
   useEffect(() => {
     if (show) document.addEventListener("keydown", escapeCallback, false);
     return () => document.removeEventListener("keydown", escapeCallback, false);
@@ -98,7 +116,9 @@ export default function Modal({
       >
         <div
           ref={modalRef}
-          className={`flex flex-col bg-white rounded-lg shadow space-y-1 grow max-h-[90%] ${SIZE_MAP[size]} ${className}`}
+          className={`flex flex-col bg-white rounded-lg shadow space-y-1 grow max-h-[90%] ${
+            height ? HEIGHT_MAP[height] : "h-auto"
+          } ${WIDTH_MAP[width]} ${className}`}
           role="dialog"
           aria-modal
           tabIndex={-1}
@@ -113,29 +133,39 @@ export default function Modal({
 }
 
 interface ModalHeaderProps {
+  title?: string;
+  hideCloseButton?: boolean;
   className?: string;
   children?: React.ReactNode;
 }
 
-function ModalHeader({ className = "", children }: ModalHeaderProps) {
+function ModalHeader({
+  title,
+  hideCloseButton,
+  className = "",
+  children,
+}: ModalHeaderProps) {
   const context = useContext(ModalContext);
 
   return (
     <>
-      <div
-        className={`px-6 py-4 flex items-center justify-between ${className}`}
-      >
-        <div className="w-full text-xl font-medium text-gray-900">
+      <div className={`px-6 py-4 flex justify-between ${className}`}>
+        <div>
+          {title ? (
+            <h3 className="text-2xl font-bold text-gray-900">{title}</h3>
+          ) : null}
           {children}
         </div>
-        <div className="mr-2">
-          <button
-            className="rounded-lg bg-transparent p-1.5 text-sm text-gray-400 hover:bg-gray-200 hover:text-gray-900"
-            onClick={context?.onClose}
-          >
-            <FiX size="20" />
-          </button>
-        </div>
+        {hideCloseButton !== true ? (
+          <div className="mr-2">
+            <button
+              className="rounded-lg bg-transparent p-1.5 text-sm text-gray-400 hover:bg-gray-200 hover:text-gray-900"
+              onClick={context?.onClose}
+            >
+              <FiX size="20" />
+            </button>
+          </div>
+        ) : null}
       </div>
       <hr />
     </>
@@ -153,6 +183,21 @@ function ModalBody({ className = "", children }: ModalBodyProps) {
   );
 }
 
+interface ModalFooterProps {
+  className?: string;
+  children?: React.ReactNode;
+}
+
+function ModalFooter({ className = "", children }: ModalFooterProps) {
+  return (
+    <>
+      <hr />
+      <div className={`px-6 py-4 flex space-x-2 ${className}`}>{children}</div>
+    </>
+  );
+}
+
 // setup sub-components
 Modal.Header = ModalHeader;
 Modal.Body = ModalBody;
+Modal.Footer = ModalFooter;

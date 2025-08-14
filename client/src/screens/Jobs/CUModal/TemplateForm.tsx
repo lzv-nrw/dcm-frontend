@@ -1,18 +1,18 @@
 import { ListGroup } from "flowbite-react";
 
-import t from "../../utils/translation";
-import { Template, Workspace } from "../../types";
-import useGlobalStore from "../../store";
+import t from "../../../utils/translation";
+import { Template, Workspace } from "../../../types";
+import useGlobalStore from "../../../store";
 
-interface NewJobConfigTemplateSelectProps {
+interface TemplateFormProps {
   workspace: Workspace;
   onSelect?: (template: Template) => void;
 }
 
-export default function NewJobConfigTemplateSelect({
+export default function TemplateForm({
   onSelect,
   workspace,
-}: NewJobConfigTemplateSelectProps) {
+}: TemplateFormProps) {
   const templates = useGlobalStore((state) => state.template.templates);
 
   return (
@@ -34,8 +34,12 @@ export default function NewJobConfigTemplateSelect({
               key={template.id}
               onClick={() => onSelect?.(template)}
             >
-              <span className="flex text-left my-2 font-semibold dcm-clamp-text">{template.name}</span>
-              <span className="my-2 ml-6 text-left dcm-clamp-text">{template.description ?? "-"}</span>
+              <span className="flex text-left my-2 font-semibold dcm-clamp-text">
+                {template.name}
+              </span>
+              <span className="my-2 ml-6 text-left dcm-clamp-text">
+                {template.description ?? "-"}
+              </span>
             </ListGroup.Item>
           ))}
       </ListGroup>

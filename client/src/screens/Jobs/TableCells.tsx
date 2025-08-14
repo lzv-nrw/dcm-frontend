@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useNavigate } from "react-router";
 import { Table, Button, Spinner } from "flowbite-react";
-import { FiPlay, FiEye, FiEdit3 } from "react-icons/fi";
+import { FiPlay, FiEye, FiEdit3, FiTrash2 } from "react-icons/fi";
 
 import t from "../../utils/translation";
 import { formatJobConfigStatus } from "../../utils/util";
@@ -11,9 +11,9 @@ import { JobConfig } from "../../types";
 import useGlobalStore from "../../store";
 import { host, credentialsValue, devMode } from "../../App";
 import DebugJobModal from "./DebugJobModal";
-import NewJobConfigModal, {
-  useNewJobConfigFormStore,
-} from "./NewJobConfigModal";
+import CUModal from "./CUModal/Modal";
+import { useFormStore } from "./CUModal/store";
+import ConfirmModal from "../../components/ConfirmModal";
 
 export interface TableCellProps {
   config?: JobConfig;
@@ -172,12 +172,13 @@ export function ActionsCell({ config }: TableCellProps) {
   const acl = useGlobalStore((state) => state.session.acl);
   const workspaces = useGlobalStore((state) => state.workspace.workspaces);
   const templates = useGlobalStore((state) => state.template.templates);
+  const fetchList = useGlobalStore((state) => state.job.fetchList);
   const fetchJobConfig = useGlobalStore((state) => state.job.fetchJobConfig);
   const [loadingJobExecution, setLoadingJobExecution] = useState(false);
-  const [showNewJobConfigModal, setShowNewJobConfigModal] = useState(false);
-  const initFromConfig = useNewJobConfigFormStore(
-    (state) => state.initFromConfig
-  );
+  const [loadingDelete, setLoadingDelete] = useState(false);
+  const [showCUModal, setShowCUModal] = useState(false);
+  const [showConfirmDeleteModal, setShowConfirmDeleteModal] = useState(false);
+  const initFromConfig = useFormStore((state) => state.initFromConfig);
   const navigate = useNavigate();
 
   // devMode-Modal for tracking job progress
@@ -198,10 +199,11 @@ export function ActionsCell({ config }: TableCellProps) {
           }}
         />
       ) : null}
-      <div className="flex flex-row space-x-2">
+      <div className="flex flex-row space-x-1">
         {acl?.CREATE_JOB ? (
           <Button
-            className="p-0"
+            className="p-0 aspect-square items-center"
+            size="xs"
             disabled={loadingJobExecution || config.status !== "ok"}
             onClick={() => {
               setLoadingJobExecution(true);
@@ -240,7 +242,8 @@ export function ActionsCell({ config }: TableCellProps) {
         ) : null}
         {acl?.READ_JOBCONFIG ? (
           <Button
-            className="p-0"
+            className="p-0 aspect-square items-center"
+            size="xs"
             onClick={() => navigate(`/job-details?id=${config.id}`)}
           >
             <FiEye size={20} />
@@ -249,7 +252,8 @@ export function ActionsCell({ config }: TableCellProps) {
         {acl?.MODIFY_JOBCONFIG ? (
           <>
             <Button
-              className="p-0"
+              className="p-0 aspect-square items-center"
+              size="xs"
               onClick={() => {
                 if (
                   config === undefined ||
@@ -270,16 +274,71 @@ export function ActionsCell({ config }: TableCellProps) {
                   templates[config.templateId],
                   workspaces[config.workspaceId]
                 );
-                setShowNewJobConfigModal(true);
+                setShowCUModal(true);
               }}
             >
               <FiEdit3 size={20} />
             </Button>
-            <NewJobConfigModal
-              show={showNewJobConfigModal}
-              onClose={() => setShowNewJobConfigModal(false)}
+            <CUModal
+              show={showCUModal}
+              onClose={() => setShowCUModal(false)}
               tab={2}
             />
+          </>
+        ) : null}
+        {acl?.DELETE_JOBCONFIG ? (
+          <>
+            <Button
+              className="p-0 aspect-square items-center"
+              size="xs"
+              disabled={loadingDelete}
+              onClick={() => {
+                setLoadingDelete(true);
+                setShowConfirmDeleteModal(true);
+              }}
+            >
+              {loadingDelete ? <Spinner size="sm" /> : <FiTrash2 size={20} />}
+            </Button>
+            <ConfirmModal
+              show={showConfirmDeleteModal}
+              title={t("Löschen")}
+              onConfirm={() => {
+                setShowConfirmDeleteModal(false);
+                fetch(
+                  host +
+                    "/api/curator/job-config?" +
+                    new URLSearchParams({ id: config.id }).toString(),
+                  {
+                    method: "DELETE",
+                    credentials: credentialsValue,
+                  }
+                )
+                  .then(async (response) => {
+                    setLoadingDelete(false);
+                    if (!response.ok) {
+                      throw new Error(
+                        `Unexpected response (${await response.text()}).`
+                      );
+                    }
+                    fetchList({ replace: true });
+                  })
+                  .catch((error) => {
+                    setLoadingDelete(false);
+                    alert(error.message);
+                    fetchList({ replace: true });
+                  });
+              }}
+              onCancel={() => {
+                setShowConfirmDeleteModal(false);
+                setLoadingDelete(false);
+              }}
+            >
+              <span>
+                {config.name
+                  ? t(`Job-Konfiguration '${config.name}' löschen?`)
+                  : t("Unbenannte Job-Konfiguration löschen?")}
+              </span>
+            </ConfirmModal>
           </>
         ) : null}
       </div>

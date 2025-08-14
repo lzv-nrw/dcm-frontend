@@ -1,8 +1,14 @@
-import { Table, List } from "flowbite-react";
+import { useState } from "react";
+import { Table, List, Button, Spinner } from "flowbite-react";
+import { FiEdit3, FiTrash2 } from "react-icons/fi";
 
 import t from "../../utils/translation";
 import { User } from "../../types";
 import useGlobalStore from "../../store";
+import ConfirmModal from "../../components/ConfirmModal";
+import CUModal from "./CUModal/Modal";
+import { useFormStore } from "./CUModal/store";
+import { credentialsValue, host } from "../../App";
 
 export interface TableCellProps {
   user?: User;
@@ -88,6 +94,104 @@ export function GroupsCell({ user }: TableCellProps) {
           )
         )}
       </List>
+    </Table.Cell>
+  );
+}
+
+export function ActionsCell({ user }: TableCellProps) {
+  const acl = useGlobalStore((state) => state.session.acl);
+  const fetchList = useGlobalStore((state) => state.user.fetchList);
+  const [loadingDelete, setLoadingDelete] = useState(false);
+  const [showCUModal, setShowCUModal] = useState(false);
+  const [showConfirmDeleteModal, setShowConfirmDeleteModal] = useState(false);
+  const initFromConfig = useFormStore((state) => state.initFromConfig);
+
+  if (!user)
+    return <Table.HeadCell className="w-1">{t("Aktion")}</Table.HeadCell>;
+  return (
+    <Table.Cell>
+      <div className="flex flex-row space-x-1">
+        {acl?.MODIFY_USERCONFIG ? (
+          <>
+            <Button
+              className="p-0 aspect-square items-center"
+              size="xs"
+              onClick={() => {
+                if (user === undefined) {
+                  alert(
+                    t(
+                      "Etwas ist schief gelaufen, die Nutzerkonfiguration fehlt."
+                    )
+                  );
+                  return;
+                }
+                initFromConfig(user);
+                setShowCUModal(true);
+              }}
+            >
+              <FiEdit3 size={20} />
+            </Button>
+            <CUModal show={showCUModal} onClose={() => setShowCUModal(false)} />
+          </>
+        ) : null}
+        {acl?.DELETE_USERCONFIG ? (
+          <>
+            <Button
+              className="p-0 aspect-square items-center"
+              size="xs"
+              disabled={loadingDelete}
+              onClick={() => {
+                setLoadingDelete(true);
+                setShowConfirmDeleteModal(true);
+              }}
+            >
+              {loadingDelete ? <Spinner size="sm" /> : <FiTrash2 size={20} />}
+            </Button>
+            <ConfirmModal
+              show={showConfirmDeleteModal}
+              title={t("Löschen")}
+              onConfirm={() => {
+                setShowConfirmDeleteModal(false);
+                fetch(
+                  host +
+                    "/api/admin/user?" +
+                    new URLSearchParams({ id: user.id }).toString(),
+                  {
+                    method: "DELETE",
+                    credentials: credentialsValue,
+                  }
+                )
+                  .then(async (response) => {
+                    setLoadingDelete(false);
+                    if (!response.ok) {
+                      throw new Error(
+                        `Unexpected response (${await response.text()}).`
+                      );
+                    }
+                    fetchList({ replace: true });
+                  })
+                  .catch((error) => {
+                    setLoadingDelete(false);
+                    alert(error.message);
+                    fetchList({ replace: true });
+                  });
+              }}
+              onCancel={() => {
+                setShowConfirmDeleteModal(false);
+                setLoadingDelete(false);
+              }}
+            >
+              <span>
+                {user?.username
+                  ? t(
+                      `Nutzer-Konfiguration für Nutzer '${user.username}' löschen?`
+                    )
+                  : t("Nutzer-Konfiguration löschen?")}
+              </span>
+            </ConfirmModal>
+          </>
+        ) : null}
+      </div>
     </Table.Cell>
   );
 }
