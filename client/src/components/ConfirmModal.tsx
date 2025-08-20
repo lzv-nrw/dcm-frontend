@@ -24,7 +24,7 @@ export default function ConfirmModal({
   return (
     <Modal show={show} width="lg" onClose={onCancel}>
       <Modal.Header title={title} hideCloseButton/>
-      <Modal.Body>{children}</Modal.Body>
+      <Modal.Body className="py-4">{children}</Modal.Body>
       <Modal.Footer>
         <div className="w-full flex flex-row justify-between">
           <Button onClick={onCancel}>{cancelText}</Button>

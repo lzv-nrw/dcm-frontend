@@ -10,7 +10,7 @@ setup(
     install_requires=[
         "flask>=3,<4",
         "flask-login>=0.6.3,<1",
-        "dcm-common[services]>=3.11.0,<4",
+        "dcm-common[services]>=3.26.0,<4",
         "dcm-backend-sdk>=2.3.0,<3",
         "oai-pmh-extractor>=3.0.0,<4",
     ],

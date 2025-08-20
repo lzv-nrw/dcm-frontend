@@ -6,7 +6,7 @@ from typing import Optional
 from collections.abc import Iterable
 
 from flask import Blueprint, Response, request, jsonify
-from flask_login import login_required, current_user
+from flask_login import login_required, current_user as current_session
 from dcm_common import services
 from dcm_common.util import now
 from dcm_backend_sdk import ConfigApi
@@ -87,7 +87,7 @@ class TemplateView(services.View):
                         request.json, ["userModified", "datetimeModified"]
                     )
                     | {
-                        "userCreated": current_user.id,
+                        "userCreated": current_session.user_config_id,
                         "datetimeCreated": now().isoformat(),
                     }
                 ],
@@ -200,7 +200,7 @@ class TemplateView(services.View):
                         request.json, ["userCreated", "datetimeCreated"]
                     )
                     | {
-                        "userModified": current_user.id,
+                        "userModified": current_session.user_config_id,
                         "datetimeModified": now().isoformat(),
                     }
                 ],

@@ -1,7 +1,5 @@
 """Group-data model test-module."""
 
-from unittest.mock import patch
-
 import pytest
 from dcm_common.models.data_model import get_model_serialization_test
 
@@ -9,7 +7,6 @@ from dcm_frontend.models import (
     SimpleRule,
     WorkspaceRule,
     User,
-    GroupMembership,
     GroupInfo,
     ACL,
 )
@@ -38,22 +35,26 @@ def test_simple_rule_has_permission():
     """Test method `SimpleRule.has_permission`."""
     rule = SimpleRule("group-1")
 
-    assert rule.has_permission(User("", [GroupMembership("group-1")]))
-    assert not rule.has_permission(User("", [GroupMembership("group-2")]))
+    assert rule.has_permission(User({"groups": [{"id": "group-1"}]}))
+    assert not rule.has_permission(User({"groups": [{"id": "group-2"}]}))
     assert rule.has_permission(
-        User("", [GroupMembership("group-1"), GroupMembership("group-2")])
+        User({"groups": [{"id": "group-1"}, {"id": "group-2"}]})
     )
-    assert not rule.has_permission(User("", []))
+    assert not rule.has_permission(User({"groups": []}))
 
 
 def test_workspace_rule_has_permission():
     """Test method `WorkspaceRule.has_permission`."""
     rule = WorkspaceRule("group-1")
 
-    assert rule.has_permission(User("", [GroupMembership("group-1", "0")]))
-    assert not rule.has_permission(User("", [GroupMembership("group-2", "0")]))
-    assert not rule.has_permission(User("", [GroupMembership("group-1")]))
-    assert not rule.has_permission(User("", []))
+    assert rule.has_permission(
+        User({"groups": [{"id": "group-1", "workspace": "0"}]})
+    )
+    assert not rule.has_permission(
+        User({"groups": [{"id": "group-2", "workspace": "0"}]})
+    )
+    assert not rule.has_permission(User({"groups": [{"id": "group-1"}]}))
+    assert not rule.has_permission(User({"groups": []}))
 
 
 test_acl_json = get_model_serialization_test(
@@ -90,29 +91,31 @@ def test_acl_has_permission():
     )
 
     assert acl.has_permission(
-        acl.CREATE_USERCONFIG, User("", [GroupMembership("group-1")])
+        acl.CREATE_USERCONFIG,
+        User({"groups": [{"id": "group-1"}]}),
     )
     assert not acl.has_permission(
-        acl.CREATE_USERCONFIG, User("", [GroupMembership("group-3")])
+        acl.CREATE_USERCONFIG,
+        User({"groups": [{"id": "group-3"}]}),
     )
     assert acl.has_permission(
         acl.CREATE_USERCONFIG,
-        User("", [GroupMembership("group-2", "0")]),
+        User({"groups": [{"id": "group-2", "workspace": "0"}]}),
     )
     assert not acl.has_permission(
         acl.CREATE_USERCONFIG,
-        User("", [GroupMembership("group-2")]),
+        User({"groups": [{"id": "group-2"}]}),
     )
 
 
 @pytest.mark.parametrize(
     ("user", "expected"),
     (
-        (User(""), False),
-        (User("", [GroupMembership("group-1")]), True),
-        (User("", [GroupMembership("group-2")]), False),
-        (User("", [GroupMembership("group-2", workspace="0")]), True),
-        (User("", [GroupMembership("group-3", workspace="0")]), True),
+        (User({}), False),
+        (User({"groups": [{"id": "group-1"}]}), True),
+        (User({"groups": [{"id": "group-2"}]}), False),
+        (User({"groups": [{"id": "group-2", "workspace": "0"}]}), True),
+        (User({"groups": [{"id": "group-3", "workspace": "0"}]}), True),
     ),
 )
 def test_acl_reduce(user, expected):

@@ -25,11 +25,13 @@ export default function CUModal({
   tab: tab0 = 0,
 }: CUModalProps) {
   const [tab, setTab] = useState(tab0);
+  const users = useGlobalStore((state) => state.user.users);
+  const fetchUserList = useGlobalStore((state) => state.user.fetchList);
+
   const [validator, setCurrentValidationReport] = useFormStore(
     useShallow((state) => [state.validator, state.setCurrentValidationReport])
   );
 
-  const fetchUserList = useGlobalStore((state) => state.user.fetchList);
   const formStore = useFormStore();
 
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +40,7 @@ export default function CUModal({
   // reset form on hide
   useEffect(() => {
     setError(null);
+    setSending(false);
     setTab(tab0);
     if (!show) useFormStore.setState(useFormStore.getInitialState(), true);
   }, [show, tab0]);
@@ -94,6 +97,7 @@ export default function CUModal({
             )}
             {(formStore.id !== undefined || tab === 1) && (
               <Button
+                disabled={sending}
                 onClick={() => {
                   const report = validator.validate(true) || {};
                   setCurrentValidationReport(report);
@@ -101,7 +105,7 @@ export default function CUModal({
                     setError(ValidationMessages.GenericBadForm());
                     return;
                   }
-                  const formData = formStore.formatToConfig();
+                  setError(null);
                   setSending(true);
                   fetch(host + "/api/admin/user", {
                     method: formStore.id ? "PUT" : "POST",
@@ -109,7 +113,10 @@ export default function CUModal({
                       "Content-Type": "application/json",
                     },
                     credentials: credentialsValue,
-                    body: JSON.stringify(formData),
+                    body: JSON.stringify({
+                      ...users[formStore.id ?? ""],
+                      ...formStore.formatToConfig(),
+                    }),
                   })
                     .then((response) => {
                       setSending(false);

@@ -16,7 +16,7 @@ export default function TemplateForm({
   const templates = useGlobalStore((state) => state.template.templates);
 
   return (
-    <div>
+    <div className="py-4">
       <h3 className="font-bold">
         {t("Bitte wählen Sie ein Template für Ihren Job aus")}
       </h3>

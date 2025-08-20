@@ -91,14 +91,18 @@ The two components of this repository support the following options for configur
 
 ### Flask app
 
-* `SECRET_KEY` [DEFAULT "020601e2d51d69e07fdbf29fd5bfa790"] secret (general-purpose) encryption key
-* `ALLOW_CORS` [DEFAULT 0] enable CORS for development
-* `DEV_CLIENT_URL` [DEFAULT "http://localhost:3000"] client url for CORS-requests during development
-* `STATIC_PATH` [DEFAULT "client"] static web-client directory
-* `LOGO_PATH` [DEFAULT null] path to logo file
-* `WELCOME_MESSAGE_TEMPLATE` [DEFAULT "..."] python format string used on the home-page after login; format kwargs are `VERSION` for package version and `BUILD_DATETIME` for the datetime during packaging
-* `BACKEND_HOST` [DEFAULT http://localhost:8086] host address for Backend-service
-* `BACKEND_TIMEOUT` [DEFAULT 10] timeout duration for requests to the Backend-service in seconds
+* `SECRET_KEY` [DEFAULT "020601e2d51d69e07fdbf29fd5bfa790"]: secret (general-purpose) encryption key
+* `ALLOW_CORS` [DEFAULT 0]: enable CORS for development
+* `SESSION_DB_ADAPTER` [DEFAULT "native"]: which adapter-type to use for session-management (see [dcm-common](https://github.com/lzv-nrw/dcm-common#key-value-store-implementation)-docs for more information)
+* `SESSION_DB_SETTINGS` [DEFAULT {"backend": "memory"}]: JSON object containing the relevant information for initializing the adapter (see [dcm-common](https://github.com/lzv-nrw/dcm-common#key-value-store-implementation)-docs for more information)
+* `SESSION_EXPIRATION_DELTA` [DEFAULT 2419200]: duration until a session expires in seconds; a value of zero disables session expiration
+* `SESSION_DISABLE_USER_CACHING` [DEFAULT 0]: disable caching of user-configurations for authentication; for performance reasons, it is generally recommended to keep the caching enabled
+* `DEV_CLIENT_URL` [DEFAULT "http://localhost:3000"]: client url for CORS-requests during development
+* `STATIC_PATH` [DEFAULT "client"]: static web-client directory
+* `LOGO_PATH` [DEFAULT null]: path to logo file
+* `WELCOME_MESSAGE_TEMPLATE` [DEFAULT "..."]: python format string used on the home-page after login; format kwargs are `VERSION` for package version and `BUILD_DATETIME` for the datetime during packaging
+* `BACKEND_HOST` [DEFAULT http://localhost:8086]: host address for Backend-service
+* `BACKEND_TIMEOUT` [DEFAULT 10]: timeout duration for requests to the Backend-service in seconds
 * `OAI_TIMEOUT` [DEFAULT 60]: timeout for single connections to oai-repositories in seconds
 * `OAI_MAX_RESUMPTION_TOKENS` [DEFAULT 5]: maximum number of processed resumption tokens during a connection to oai-repositories
 
@@ -106,7 +110,7 @@ There are some advanced options for configuration available via the `AppConfig`-
 
 ### React Client (build variables only)
 
-* `REACT_APP_API_URL` [DEFAULT ""] base url for backend;
+* `REACT_APP_API_URL` [DEFAULT ""]: base url for backend;
    when running the `npm start`-script, the variable is automatically set to `http://localhost:5000`
 
 # Contributors

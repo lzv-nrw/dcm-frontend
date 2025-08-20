@@ -213,10 +213,11 @@ export function OaiDataSelectionForm({
 
   // reset inputs when changing filter
   useEffect(() => {
-    setDataSelection({
-      sets: undefined,
-      identifiers: undefined,
-    });
+    if (active)
+      setDataSelection({
+        sets: undefined,
+        identifiers: undefined,
+      });
     // eslint-disable-next-line
   }, [filterType]);
 

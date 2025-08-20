@@ -22,20 +22,23 @@ interface CUModalProps {
 
 export default function CUModal({ show, onClose }: CUModalProps) {
   const [tab, setTab] = useState(0);
+  const templates = useGlobalStore((state) => state.template.templates);
+  const fetchTemplateList = useGlobalStore((state) => state.template.fetchList);
+
   const [validator, setCurrentValidationReport] = useFormStore(
     useShallow((state) => [state.validator, state.setCurrentValidationReport])
   );
-
-  const fetchTemplateList = useGlobalStore((state) => state.template.fetchList);
   const formStore = useFormStore();
 
   const [error, setError] = useState<string | null>(null);
-  const [sending, setSending] = useState(false);
+  const [sendingDraft, setSendingDraft] = useState(false);
+  const [sendingConfig, setSendingConfig] = useState(false);
 
   // reset form on hide
   useEffect(() => {
     setError(null);
-    setSending(false);
+    setSendingDraft(false);
+    setSendingConfig(false);
     setTab(0);
     if (!show) useFormStore.setState(useFormStore.getInitialState(), true);
   }, [show]);
@@ -59,10 +62,14 @@ export default function CUModal({ show, onClose }: CUModalProps) {
         "Content-Type": "application/json",
       },
       credentials: credentialsValue,
-      body: JSON.stringify(formStore.formatToConfig(status)),
+      body: JSON.stringify({
+        ...templates[formStore.id ?? ""],
+        ...formStore.formatToConfig(status),
+      }),
     })
       .then((response) => {
-        setSending(false);
+        if (status === "draft") setSendingDraft(false);
+        if (status === "ok") setSendingConfig(false);
         if (response.ok) {
           fetchTemplateList({});
           onClose?.();
@@ -73,7 +80,8 @@ export default function CUModal({ show, onClose }: CUModalProps) {
           .then((text) => setError(t("Unerwartete Antwort") + ": " + text));
       })
       .catch((error) => {
-        setSending(false);
+        if (status === "draft") setSendingDraft(false);
+        if (status === "ok") setSendingConfig(false);
         console.error(error);
         setError(t("Fehler beim Senden") + ": " + error?.toString());
       });
@@ -137,13 +145,14 @@ export default function CUModal({ show, onClose }: CUModalProps) {
             <Button onClick={onClose}>{t("Abbrechen")}</Button>
             {(devMode || formStore.status === "draft") && (
               <Button
+                disabled={sendingDraft}
                 onClick={() => {
                   setError(null);
-                  setSending(true);
+                  setSendingDraft(true);
                   submitForm("draft");
                 }}
               >
-                {t("Entwurf speichern")}
+                {sendingDraft ? <Spinner size="sm" /> : t("Entwurf speichern")}
               </Button>
             )}
           </div>
@@ -160,6 +169,7 @@ export default function CUModal({ show, onClose }: CUModalProps) {
             )}
             {(formStore.status === "ok" || tab >= 2) && (
               <Button
+                disabled={sendingConfig}
                 onClick={() => {
                   const report = validator.validate(true) || {};
                   setCurrentValidationReport(report);
@@ -168,12 +178,12 @@ export default function CUModal({ show, onClose }: CUModalProps) {
                     return;
                   }
                   setError(null);
-                  setSending(true);
+                  setSendingConfig(true);
                   submitForm("ok");
                 }}
               >
-                {sending ? (
-                  <Spinner />
+                {sendingConfig ? (
+                  <Spinner size="sm" />
                 ) : (
                   t(
                     formStore.status === "draft"

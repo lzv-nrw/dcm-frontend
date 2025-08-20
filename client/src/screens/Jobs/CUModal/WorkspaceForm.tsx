@@ -16,7 +16,7 @@ export default function WorkspaceForm({ onSelect }: WorkspaceFormProps) {
   );
 
   return (
-    <div>
+    <div className="py-4">
       <h3 className="font-bold">
         {t("In welchem Arbeitsbereich soll der Job angelegt werden?")}
       </h3>

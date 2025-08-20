@@ -5,7 +5,7 @@ UserConfig View-class definition
 import sys
 
 from flask import Blueprint, Response, request, jsonify
-from flask_login import login_required, current_user
+from flask_login import login_required, current_user as current_session
 from dcm_common import services
 from dcm_common.util import now
 from dcm_backend_sdk import ConfigApi
@@ -57,7 +57,7 @@ class UserConfigView(services.View):
                         request.json, ["userModified", "datetimeModified"]
                     )
                     | {
-                        "userCreated": current_user.id,
+                        "userCreated": current_session.user_config_id,
                         "datetimeCreated": now().isoformat(),
                     }
                 ],
@@ -187,22 +187,27 @@ class UserConfigView(services.View):
                         request.json, ["userCreated", "datetimeCreated"]
                     )
                     | {
-                        "userModified": current_user.id,
+                        "userModified": current_session.user_config_id,
                         "datetimeModified": now().isoformat(),
                     }
                 ],
                 request_timeout=self.config.BACKEND_TIMEOUT,
             )
-            if response.status_code == 200:
+            if response.status_code != 200:
                 return Response(
-                    "OK",
+                    response.fail_reason,
                     mimetype="text/plain",
-                    status=200,
+                    status=response.status_code,
                 )
+
+            # invalidate cached user-config
+            if not self.config.SESSION_DISABLE_USER_CACHING:
+                self.config.user_configs.delete(request.json["id"])
+
             return Response(
-                response.fail_reason,
+                "OK",
                 mimetype="text/plain",
-                status=response.status_code,
+                status=200,
             )
 
         @bp.route("/user", methods=["DELETE"])
@@ -296,16 +301,27 @@ class UserConfigView(services.View):
                 }],
                 request_timeout=self.config.BACKEND_TIMEOUT,
             )
-            if response.status_code == 200:
+            if response.status_code != 200:
                 return Response(
-                    "OK",
+                    response.fail_reason,
                     mimetype="text/plain",
-                    status=200,
+                    status=response.status_code,
                 )
+
+            # invalidate cached user-config and associated sessions
+            if not self.config.SESSION_DISABLE_USER_CACHING:
+                # * user config
+                self.config.user_configs.delete(user["id"])
+                # * sessions
+                for session_id in self.config.sessions.keys():
+                    session = self.config.sessions.read(session_id)
+                    if session.get("userConfigId") == user["id"]:
+                        self.config.sessions.delete(session_id)
+
             return Response(
-                response.fail_reason,
+                "OK",
                 mimetype="text/plain",
-                status=response.status_code,
+                status=200,
             )
 
         @bp.route("/user-info", methods=["GET"])

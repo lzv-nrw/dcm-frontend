@@ -6,7 +6,7 @@ from typing import Optional
 from collections.abc import Iterable
 
 from flask import Blueprint, Response, request, jsonify
-from flask_login import login_required, current_user
+from flask_login import login_required, current_user as current_session
 from dcm_common import services
 from dcm_backend_sdk import JobApi, ConfigApi
 
@@ -66,7 +66,7 @@ class JobView(services.View):
                 args=(
                     {
                         "id": request.args.get("id"),
-                        "userTriggered": current_user.id,
+                        "userTriggered": current_session.user_config_id,
                     },
                 ),
                 request_timeout=self.config.BACKEND_TIMEOUT,

@@ -25,7 +25,7 @@ export default function NewWidgetModal({
     >
       <Modal.Header title={t("Neues Widget") + "-" + Widget.name} />
       <Modal.Body>
-        <div className="space-y-2">
+        <div className="space-y-2 py-4">
           <div className="space-y-2">
             <Label htmlFor="title" value={t("Titel")} />
             <TextInput

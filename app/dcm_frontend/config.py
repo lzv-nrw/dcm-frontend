@@ -3,9 +3,11 @@
 from typing import Optional
 import os
 from pathlib import Path
+import json
 from importlib.metadata import version
 
 from dcm_common.services import BaseConfig
+from dcm_common.db.key_value_store import util
 
 from dcm_frontend.models import Rule, SimpleRule, WorkspaceRule, GroupInfo, ACL
 
@@ -41,6 +43,20 @@ class AppConfig(BaseConfig):
     SECRET_KEY = (
         os.environ.get("SECRET_KEY") or "020601e2d51d69e07fdbf29fd5bfa790"
     )
+    # this store writes session objects containing user-config id and
+    # expiration date (see AuthView POST-/login for details)
+    SESSION_DB_ADAPTER = os.environ.get("SESSION_DB_ADAPTER")
+    SESSION_DB_SETTINGS = (
+        json.loads(os.environ["SESSION_DB_SETTINGS"])
+        if "SESSION_DB_SETTINGS" in os.environ
+        else None
+    )
+    SESSION_EXPIRATION_DELTA = float(
+        os.environ.get("SESSION_EXPIRATION_DELTA", 2419200)  # four weeks
+    )
+    SESSION_DISABLE_USER_CACHING = (
+        int(os.environ.get("SESSION_DISABLE_USER_CACHING", 0))
+    ) == 1
 
     # ------ REQUESTS TO OAI-REPOSITORIES ------
     OAI_TIMEOUT = int(os.environ.get("OAI_TIMEOUT") or 60)
@@ -270,3 +286,16 @@ class AppConfig(BaseConfig):
     # ------ DCM-BACKEND ------
     BACKEND_HOST = os.environ.get("BACKEND_HOST") or "http://localhost:8086"
     BACKEND_TIMEOUT = float(os.environ.get("BACKEND_TIMEOUT", 10.0))
+
+    def __init__(self) -> None:
+        self.sessions = util.load_adapter(
+            "sessions",
+            self.SESSION_DB_ADAPTER or "native",
+            self.SESSION_DB_SETTINGS or {"backend": "memory"},
+        )
+        if not self.SESSION_DISABLE_USER_CACHING:
+            self.user_configs = util.load_adapter(
+                "user_configs", "native", {"backend": "memory"}
+            )
+
+        super().__init__()

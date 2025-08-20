@@ -3,7 +3,7 @@
 from functools import wraps
 
 from flask import Response
-from flask_login import current_user
+from flask_login import current_user as current_session
 
 from dcm_frontend.models import Rule, SimpleRule, WorkspaceRule
 
@@ -20,7 +20,9 @@ def requires_permission(*rules: Rule):
     def decorator(func):
         @wraps(func)
         def decorated_view(*args, **kwargs):
-            if not any(rule.has_permission(current_user) for rule in rules):
+            if not any(
+                rule.has_permission(current_session.user) for rule in rules
+            ):
                 return Response("Forbidden", mimetype="text/plain", status=403)
             return func(*args, **kwargs)
 
@@ -41,6 +43,7 @@ def generate_workspaces(*rules: Rule):
     def decorator(func):
         @wraps(func)
         def decorated_view(*args, **kwargs):
+            current_user = current_session.user
             # check whether simple rule applies
             srules = filter(  # filter for relevant rules
                 lambda r: isinstance(r, SimpleRule)

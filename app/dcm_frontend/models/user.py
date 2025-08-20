@@ -1,7 +1,7 @@
 """User class definition"""
 
 from typing import Optional
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from flask_login import UserMixin
 from dcm_common.models import DataModel
@@ -27,9 +27,25 @@ class GroupMembership(DataModel):
         return value
 
 
-@dataclass
-class User(UserMixin):
+class User:
     """User data model."""
 
+    def __init__(self, config: dict) -> None:
+        self.config = config
+        self.update_groups()
+
+    def update_groups(self) -> None:
+        """Updates group from stored config."""
+        self.groups = [
+            GroupMembership.from_json(group)
+            for group in self.config.get("groups", [])
+        ]
+
+
+@dataclass
+class Session(UserMixin):
+    """Session data model."""
+
     id: str
-    groups: list[GroupMembership] = field(default_factory=list)
+    user_config_id: str
+    user: Optional[User] = None

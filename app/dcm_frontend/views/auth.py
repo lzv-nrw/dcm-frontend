@@ -2,12 +2,15 @@
 Authentication View-class definition
 """
 
+from uuid import uuid4
+from datetime import datetime, timedelta
+
 from flask import Blueprint, Response, jsonify, request
 from flask_login import login_required, login_user, logout_user, current_user
 from dcm_common import services
 from dcm_backend_sdk import UserApi
 
-from dcm_frontend.models import User, GroupMembership
+from dcm_frontend.models import Session
 from dcm_frontend.decorators import requires_permission
 from dcm_frontend.util import call_backend
 from dcm_frontend.config import AppConfig
@@ -21,12 +24,58 @@ class AuthView(services.View):
     def __init__(
         self,
         config: AppConfig,
-        users: dict[str, User],
         backend_user_api: UserApi,
     ) -> None:
         super().__init__(config)
-        self.users = users
         self.backend_user_api = backend_user_api
+
+    def check_session_expiration(self, session: dict) -> bool:
+        """
+        Returns session expiration status. `True` if session is not
+        expired.
+
+        Keyword arguments:
+        session -- session as JSON
+        """
+        if self.config.SESSION_EXPIRATION_DELTA <= 0:
+            return True
+
+        expires_at = session.get("expiresAt")
+        if expires_at is None:
+            return False
+        try:
+            expires_at = datetime.fromisoformat(expires_at)
+        # pylint: disable=broad-exception-caught
+        except Exception:
+            return False
+        return expires_at > datetime.now()
+
+    def update_session_expiration(
+        self, session_id: str, session: dict
+    ) -> None:
+        """
+        Updates session's-expiresAt field in the session-store.
+
+        Keyword arguments:
+        session_id -- session identifier
+        session -- session as JSON
+        """
+        self.config.sessions.write(
+            session_id,
+            session
+            | (
+                {
+                    "expiresAt": (
+                        datetime.now()
+                        + timedelta(
+                            seconds=self.config.SESSION_EXPIRATION_DELTA
+                        )
+                    ).isoformat()
+                }
+                if self.config.SESSION_EXPIRATION_DELTA > 0
+                else {}
+            ),
+        )
 
     def _add_test_endpoints(self, bp: Blueprint) -> None:
         @bp.route("/login", methods=["GET"])
@@ -40,6 +89,7 @@ class AuthView(services.View):
             and self.config.TESTING
             and self.config.TEST_PERMISSIONS_SIMPLE
         ):
+
             @bp.route(
                 f"/test-permissions-{self.config.TEST_PERMISSIONS_SIMPLE.group_id}",
                 methods=["GET"],
@@ -55,6 +105,7 @@ class AuthView(services.View):
             and self.config.TESTING
             and self.config.TEST_PERMISSIONS_WORKSPACE
         ):
+
             @bp.route(
                 f"/test-permissions-{self.config.TEST_PERMISSIONS_WORKSPACE.group_id}",
                 methods=["GET"],
@@ -87,22 +138,31 @@ class AuthView(services.View):
                     status=response.status_code,
                 )
 
-            # process user-config
-            if response.data.id not in self.users:
-                self.users[response.data.id] = User(response.data.id, [])
-            self.users[response.data.id].groups = [
-                GroupMembership.from_json(group.to_dict())
-                for group in response.data.groups
-            ]
-            login_user(self.users[response.data.id])
-            return jsonify(response.data.to_dict()), 200
+            # create session-object with random session-id and configuration id
+            session = Session(str(uuid4()), response.data.id)
+
+            # store/update user-configuration
+            config_jsonable = response.data.to_dict()
+            if not self.config.SESSION_DISABLE_USER_CACHING:
+                self.config.user_configs.write(
+                    response.data.id, config_jsonable
+                )
+
+            # create session-record in sessions-db
+            self.update_session_expiration(
+                session.id, {"userConfigId": response.data.id}
+            )
+
+            login_user(session)
+
+            return jsonify(config_jsonable), 200
 
     def _add_logout_endpoint(self, bp: Blueprint) -> None:
         @bp.route("/logout")
         @login_required
         def logout():
             """Log user out."""
-            del self.users[current_user.get_id()]
+            self.config.sessions.delete(current_user.get_id())
             logout_user()
             return Response("Logout", mimetype="text/plain", status=200)
 

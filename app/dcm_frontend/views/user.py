@@ -3,7 +3,7 @@ User View-class definition
 """
 
 from flask import Blueprint, jsonify, Response, request
-from flask_login import login_required, current_user
+from flask_login import login_required, current_user as current_session
 from dcm_common import services, util
 from dcm_backend_sdk import ConfigApi
 
@@ -31,7 +31,7 @@ class UserView(services.View):
                 endpoint=(
                     self.backend_config_api.get_user_config_with_http_info
                 ),
-                kwargs={"id": current_user.id},
+                kwargs={"id": current_session.user_config_id},
                 request_timeout=self.config.BACKEND_TIMEOUT,
             )
             if response.status_code == 200:
@@ -46,7 +46,7 @@ class UserView(services.View):
         @login_required
         def get_permission_table():
             """Returns current user's permission-table."""
-            return jsonify(self.config.ACL.reduce(current_user)), 200
+            return jsonify(self.config.ACL.reduce(current_session.user)), 200
 
         @bp.route("/widgets", methods=["PUT"])
         @login_required
@@ -57,7 +57,7 @@ class UserView(services.View):
                 endpoint=(
                     self.backend_config_api.get_user_config_with_http_info
                 ),
-                kwargs={"id": current_user.id},
+                kwargs={"id": current_session.user_config_id},
                 request_timeout=self.config.BACKEND_TIMEOUT,
             )
             if response.status_code != 200:
@@ -76,7 +76,7 @@ class UserView(services.View):
                         ["userCreated", "datetimeCreated"],
                     )
                     | {
-                        "userModified": current_user.id,
+                        "userModified": current_session.user_config_id,
                         "datetimeModified": util.now().isoformat(),
                     }
                     | {"widgetConfig": request.json}

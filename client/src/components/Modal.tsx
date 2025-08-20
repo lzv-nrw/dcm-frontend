@@ -116,7 +116,7 @@ export default function Modal({
       >
         <div
           ref={modalRef}
-          className={`flex flex-col bg-white rounded-lg shadow space-y-1 grow max-h-[90%] ${
+          className={`flex flex-col bg-white rounded-lg shadow grow max-h-[90%] ${
             height ? HEIGHT_MAP[height] : "h-auto"
           } ${WIDTH_MAP[width]} ${className}`}
           role="dialog"
@@ -179,7 +179,7 @@ interface ModalBodyProps {
 
 function ModalBody({ className = "", children }: ModalBodyProps) {
   return (
-    <div className={`p-6 h-full overflow-y-auto ${className}`}>{children}</div>
+    <div className={`px-6 h-full overflow-y-auto ${className}`}>{children}</div>
   );
 }
 

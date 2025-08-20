@@ -114,3 +114,44 @@ def test_permissions_without_login(
         ).status_code
         == 401
     )
+
+
+# if this test fails in the future, it is likely linked to using the
+# internal "_cookies"-property of test client (apparently the only
+# convenient way of preserving cookies at the time of writing
+# (the "cookie_jar" property causes an error))
+def test_login_logout_multiple_sessions(
+    run_service, backend_app, backend_port, client, user0_credentials
+):
+    """Test of /login- and /logout-endpoints using multiple sessions."""
+
+    run_service(app=backend_app, port=backend_port, probing_path="ready")
+
+    session_cookie_scope = ("localhost", "/", "session")
+    # first session
+    assert client.get("/api/auth/login").status_code == 401
+    client.post("/api/auth/login", json=user0_credentials)
+    assert client.get("/api/auth/login").status_code == 200
+
+    # store first session and "change client"
+    session_0 = client._cookies[session_cookie_scope]
+    client._cookies = {}
+
+    # open a different session
+    assert client.get("/api/auth/login").status_code == 401
+    client.post("/api/auth/login", json=user0_credentials)
+    assert client.get("/api/auth/login").status_code == 200
+    session_1 = client._cookies[session_cookie_scope]
+
+    # check back on first session and log out
+    client._cookies = {session_cookie_scope: session_0}
+    assert client.get("/api/auth/login").status_code == 200
+    assert client.get("/api/auth/logout").status_code == 200
+    assert client.get("/api/auth/login").status_code == 401
+    # cookie has been deleted, try again with force
+    client._cookies = {session_cookie_scope: session_0}
+    assert client.get("/api/auth/login").status_code == 401
+
+    # check back on second session
+    client._cookies = {session_cookie_scope: session_1}
+    assert client.get("/api/auth/login").status_code == 200

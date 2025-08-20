@@ -79,7 +79,7 @@ export default function SectionedForm({
           </Sidebar.ItemGroup>
         </Sidebar.Items>
       </Sidebar>
-      <div className="p-2 w-full h-full overflow-y-auto">
+      <div className="px-2 py-4 w-full h-full overflow-y-auto">
         {sections.map((sec) => (
           <div
             key={sec.tab}

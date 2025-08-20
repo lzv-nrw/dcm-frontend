@@ -35,10 +35,12 @@ export default function CUModal({
   tab: tab0 = 0,
 }: CUModalProps) {
   const [tab, setTab] = useState(tab0);
+  const jobConfigs = useGlobalStore((state) => state.job.jobConfigs);
+  const fetchJobConfigIds = useGlobalStore((state) => state.job.fetchList);
+
   const [validator, setCurrentValidationReport] = useFormStore(
     useShallow((state) => [state.validator, state.setCurrentValidationReport])
   );
-
   const formatToConfig = useFormStore((state) => state.formatToConfig);
   const [workspace, setWorkspace] = useFormStore(
     useShallow((state) => [state.workspace, state.setWorkspace])
@@ -48,7 +50,6 @@ export default function CUModal({
   );
   const jobId = useFormStore((state) => state.id);
   const jobConfigStatus = useFormStore((state) => state.status);
-  const fetchJobConfigIds = useGlobalStore((state) => state.job.fetchList);
 
   const [error, setError] = useState<string | null>(null);
   const [sendingDraft, setSendingDraft] = useState(false);
@@ -57,6 +58,8 @@ export default function CUModal({
   // reset form on hide
   useEffect(() => {
     setError(null);
+    setSendingDraft(false);
+    setSendingConfig(false);
     setTab(tab0);
     if (!show) useFormStore.setState(useFormStore.getInitialState(), true);
   }, [show, tab0]);
@@ -75,17 +78,20 @@ export default function CUModal({
    */
   async function submitForm(status: ConfigStatus) {
     if (template !== undefined) {
-      const formData = formatToConfig(status, template);
       fetch(host + "/api/curator/job-config", {
-        method: formData.id === undefined ? "POST" : "PUT",
+        method: jobId === undefined ? "POST" : "PUT",
         headers: {
           "Content-Type": "application/json",
         },
         credentials: credentialsValue,
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...jobConfigs[jobId ?? ""],
+          ...formatToConfig(status, template),
+        }),
       })
         .then((response) => {
-          setSendingConfig(false);
+          if (status === "draft") setSendingDraft(false);
+          if (status === "ok") setSendingConfig(false);
           if (response.ok) {
             fetchJobConfigIds({});
             onClose?.();
@@ -96,7 +102,8 @@ export default function CUModal({
             .then((text) => setError(t("Unerwartete Antwort") + ": " + text));
         })
         .catch((error) => {
-          setSendingConfig(false);
+          if (status === "draft") setSendingDraft(false);
+          if (status === "ok") setSendingConfig(false);
           console.error(error);
           setError(t("Fehler beim Senden") + ": " + error?.toString());
         });
@@ -104,13 +111,7 @@ export default function CUModal({
   }
 
   return (
-    <Modal
-      show={show}
-      width="5xl"
-      height="2xl"
-      onClose={onClose}
-      dismissible
-    >
+    <Modal show={show} width="5xl" height="2xl" onClose={onClose} dismissible>
       <Modal.Header
         title={
           !jobConfigStatus
@@ -211,6 +212,7 @@ export default function CUModal({
             {(devMode || jobConfigStatus === "draft") && tab >= 2 ? (
               // TODO enable and implement the action when backend support is available
               <Button
+                disabled={sendingDraft}
                 onClick={() => {
                   if (template === undefined) {
                     alert(
@@ -220,6 +222,7 @@ export default function CUModal({
                     );
                     return;
                   }
+                  setError(null);
                   setSendingDraft(true);
                   submitForm("draft");
                 }}
@@ -254,6 +257,7 @@ export default function CUModal({
               )}
             {(jobConfigStatus === "ok" || tab === 6) && (
               <Button
+                disabled={sendingConfig}
                 onClick={() => {
                   if (template === undefined) {
                     alert(
@@ -269,6 +273,7 @@ export default function CUModal({
                     setError(ValidationMessages.GenericBadForm());
                     return;
                   }
+                  setError(null);
                   setSendingConfig(true);
                   submitForm("ok");
                 }}

@@ -55,7 +55,7 @@ export default function NewWorkspaceModal({
     >
       <Modal.Header title={t("Arbeitsbereich erstellen")} />
       <Modal.Body>
-        <div className="space-y-2">
+        <div className="space-y-2 py-4">
           <div className="space-y-2">
             <Label htmlFor="name" value={t("Titel*")} />
             <TextInput

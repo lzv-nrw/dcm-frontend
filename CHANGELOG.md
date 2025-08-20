@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.8.0] - 2025-08-20
+
+### Added
+
+- added session management
+
+### Fixed
+
+- fixed spaces in modals
+- fixed losing oai-data-selection when editing a job configuration
+- fixed submission button behavior for create-/update-modals
+- fixed issues with incremental updates originating from create-/update-modals
+
 ## [0.7.0] - 2025-08-14
 
 ### Changed
