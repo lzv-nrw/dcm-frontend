@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useContext, useState } from "react";
 import { Button, Card, Spinner } from "flowbite-react";
 import { FiEdit3, FiTrash2 } from "react-icons/fi";
 
@@ -14,6 +14,7 @@ import { credentialsValue, host } from "../../App";
 import ConfirmModal from "../../components/ConfirmModal";
 import CUModal from "./CUModal/Modal";
 import { useFormStore } from "./CUModal/store";
+import { ErrorMessageContext } from "./TemplatesScreen";
 
 interface TemplateItemDetailsProps {
   template: Template;
@@ -93,6 +94,8 @@ export default function TemplateItem({ template }: TemplateItemProps) {
   const [showCUModal, setShowCUModal] = useState(false);
   const initFromConfig = useFormStore((state) => state.initFromConfig);
 
+  const errorHandler = useContext(ErrorMessageContext);
+
   const [showConfirmDeleteModal, setShowConfirmDeleteModal] = useState(false);
   const [loadingDelete, setLoadingDelete] = useState(false);
 
@@ -146,11 +149,7 @@ export default function TemplateItem({ template }: TemplateItemProps) {
                 <Button
                   className="p-0 aspect-square items-center"
                   size="xs"
-                  disabled={
-                    loadingDelete ||
-                    (template.linkedJobs ?? 0) > 0 ||
-                    template.id === undefined
-                  }
+                  disabled={loadingDelete || template.id === undefined}
                   onClick={() => {
                     setLoadingDelete(true);
                     setShowConfirmDeleteModal(true);
@@ -164,7 +163,8 @@ export default function TemplateItem({ template }: TemplateItemProps) {
                 </Button>
                 <ConfirmModal
                   show={showConfirmDeleteModal}
-                  title={t("Löschen")}
+                  title={t("Template löschen")}
+                  confirmText={t("Template löschen")}
                   onConfirm={() => {
                     setShowConfirmDeleteModal(false);
                     fetch(
@@ -178,18 +178,33 @@ export default function TemplateItem({ template }: TemplateItemProps) {
                         credentials: credentialsValue,
                       }
                     )
-                      .then(async (response) => {
+                      .then((response) => {
                         setLoadingDelete(false);
                         if (!response.ok) {
-                          throw new Error(
-                            `Unexpected response (${await response.text()}).`
+                          response.text().then((text) =>
+                            errorHandler?.pushMessage({
+                              id: `delete-${template.id}`,
+                              text: `${t(
+                                `Löschen von Template '${
+                                  template.name ?? template.id
+                                }' nicht erfolgreich`
+                              )}: ${text}`,
+                            })
                           );
+                          return;
                         }
                         fetchList({ replace: true });
                       })
                       .catch((error) => {
                         setLoadingDelete(false);
-                        alert(error.message);
+                        errorHandler?.pushMessage({
+                          id: `delete-${template.id}`,
+                          text: `${t(
+                            `Fehler beim Löschen von Template '${
+                              template.name ?? template.id
+                            }'`
+                          )}: ${error.message}`,
+                        });
                         fetchList({ replace: true });
                       });
                   }}
@@ -199,9 +214,15 @@ export default function TemplateItem({ template }: TemplateItemProps) {
                   }}
                 >
                   <span>
-                    {template.name
-                      ? t(`Template '${template.name}' löschen?`)
-                      : t("Unbenanntes Template löschen?")}
+                    {t(
+                      `Wollen Sie das Template '${
+                        template.name ?? "Unbenanntes Template"
+                      }' unwiderruflich löschen?`
+                    )}
+                    {(template.linkedJobs ?? 0) > 0 &&
+                      t(
+                        " Mit diesem Template verknüpfte Jobs werden automatisch mitgelöscht."
+                      )}
                   </span>
                 </ConfirmModal>
               </>

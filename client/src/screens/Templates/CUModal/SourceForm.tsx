@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useContext } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
   Alert,
@@ -25,6 +25,7 @@ import useGlobalStore from "../../../store";
 import { host, credentialsValue, devMode } from "../../../App";
 import { FormSectionComponentProps } from "../../../components/SectionedForm";
 import { useFormStore } from "./store";
+import { ErrorMessageContext } from "./Modal";
 
 export interface Source {
   type?: TemplateType;
@@ -332,6 +333,8 @@ export function OAISourceForm() {
     useShallow((state) => [state.validator, state.setCurrentValidationReport])
   );
 
+  const errorHandler = useContext(ErrorMessageContext);
+
   const [focus, setFocus] = useState("");
 
   const [connected, setConnected] = useState<boolean | undefined>(undefined);
@@ -351,6 +354,7 @@ export function OAISourceForm() {
       return;
 
     setLoadingConnection(true);
+    errorHandler?.removeMessage("oai-identify-error");
     fetch(
       host +
         "/api/misc/oai/identify?" +
@@ -361,9 +365,15 @@ export function OAISourceForm() {
         setLoadingConnection(false);
         setConnected(response.ok);
       })
-      .catch(() => {
+      .catch((error) => {
         setLoadingConnection(false);
         setConnected(false);
+        errorHandler?.pushMessage({
+          id: `oai-identify-error`,
+          text: `${t("Abfrage des OAI-Servers fehlgeschlagen")}: ${
+            error.message
+          }`,
+        });
       });
     // eslint-disable-next-line
   }, [
@@ -375,19 +385,42 @@ export function OAISourceForm() {
   useEffect(() => {
     if (!connected || !source?.oai?.url) return;
 
+    errorHandler?.removeMessage("oai-metadata-prefixes-bad-response");
+    errorHandler?.removeMessage("oai-metadata-prefixes-error");
     fetch(
       host +
         "/api/misc/oai/metadata-prefixes?" +
         new URLSearchParams({ url: encodeURI(source.oai.url) }).toString(),
       { credentials: credentialsValue }
-    ).then((response) => {
-      if (!response.ok) return;
-      response
-        .json()
-        .then((json) =>
-          setSource({ oai: { ...source.oai, metadataPrefixes: json } })
-        );
-    });
+    )
+      .then((response) => {
+        if (!response.ok) {
+          response.text().then((text) =>
+            errorHandler?.pushMessage({
+              id: `oai-metadata-prefixes-bad-response`,
+              text: `${t(
+                "Abfrage der Metadaten-Präfixe fehlgeschlagen"
+              )}: ${text}`,
+            })
+          );
+          return;
+        }
+        response
+          .json()
+          .then((json) =>
+            setSource({ oai: { ...source.oai, metadataPrefixes: json } })
+          );
+      })
+      .catch((error) => {
+        setLoadingConnection(false);
+        setConnected(false);
+        errorHandler?.pushMessage({
+          id: `oai-metadata-prefixes-error`,
+          text: `${t("Abfrage der Metadaten-Präfixe fehlgeschlagen")}: ${
+            error.message
+          }`,
+        });
+      });
     // eslint-disable-next-line
   }, [connected]);
 
@@ -703,15 +736,25 @@ export default function SourceForm({
   }, [active]);
 
   // handle validation
+  // * form section
   useEffect(() => {
-    if (!formVisited || active) return;
+    if (!formVisited) return;
+    if (validator.children?.source?.report?.ok === undefined && active) return;
     setCurrentValidationReport({
       children: {
         source: validator.children?.source?.validate(true),
       },
     });
     // eslint-disable-next-line
-  }, [active]);
+  }, [
+    active,
+    source?.plugin?.plugin,
+    source?.plugin?.args,
+    source?.hotfolder?.sourceId,
+    source?.oai?.metadataPrefix,
+    source?.oai?.url,
+    source?.oai?.transferUrlFilters,
+  ]);
 
   return (
     <>
@@ -732,15 +775,20 @@ export default function SourceForm({
                   ? undefined
                   : validator.children.source?.report?.ok,
             })}
-            onChange={(e) =>
+            onChange={(e) => {
               setSource({
                 ...source,
                 type: (e.target.value === ""
                   ? undefined
                   : e.target.value) as TemplateType,
-              })
-            }
-            onBlur={(e) => setFocus("")}
+              });
+              setCurrentValidationReport({
+                children: {
+                  source: { ok: undefined },
+                },
+              });
+            }}
+            onBlur={() => setFocus("")}
             onFocus={(e) => setFocus(e.target.id)}
           >
             <option value={""}>{t("Bitte auswählen")}</option>

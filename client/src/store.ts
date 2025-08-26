@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import { host, credentialsValue } from "./App";
+import t from "./utils/translation";
 import {
   ACL,
   User,
@@ -13,6 +13,7 @@ import {
   RecordInfo,
 } from "./types";
 import { WidgetConfig } from "./components/Widgets/types";
+import { defaultJSONFetch } from "./utils/api";
 
 export interface SessionStore {
   loggedIn?: boolean;
@@ -90,6 +91,7 @@ export interface WorkspaceStore {
     useACL?: boolean;
     onSuccess?: () => void;
     onFail?: (error: string) => void;
+    replace?: boolean;
   }) => void;
 }
 
@@ -156,175 +158,113 @@ const useGlobalStore = create<GlobalStore>()((set, get) => ({
         },
       }));
     },
-    fetchMe: ({ onSuccess, onFail }) => {
-      fetch(host + "/api/user/config", { credentials: credentialsValue })
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error(`Unexpected response (${response.statusText}).`);
-          }
-          return response.json();
-        })
-        .then((json) => {
+    fetchMe: ({ onSuccess, onFail }) =>
+      defaultJSONFetch(
+        "/api/user/config",
+        t("Nutzerkonfiguration (eigener Account)"),
+        (json) =>
           set((state) => ({
             session: {
               ...state.session,
               me: json,
             },
-          }));
-          onSuccess?.();
-        })
-        .catch((error) => {
-          console.error(error);
-          onFail?.(error.message);
-        });
-    },
-    fetchACL: ({ onSuccess, onFail }) => {
-      fetch(host + "/api/user/acl", { credentials: credentialsValue })
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error(`Unexpected response (${response.statusText}).`);
-          }
-          return response.json();
-        })
-        .then((json) => {
+          })),
+        onSuccess,
+        onFail
+      ),
+    fetchACL: ({ onSuccess, onFail }) =>
+      defaultJSONFetch(
+        "/api/user/acl",
+        t("ACL (eigener Account)"),
+        (json) =>
           set((state) => ({
             session: {
               ...state.session,
               acl: json,
             },
-          }));
-          onSuccess?.();
-        })
-        .catch((error) => {
-          console.error(error);
-          onFail?.(error.message);
-        });
-    },
+          })),
+        onSuccess,
+        onFail
+      ),
   },
   permission: {
     fetchGroups: ({ useACL = false, onSuccess, onFail }) => {
       // TODO:
       // if (useACL && !get().session.acl?.READ_GROUP_INFO) return;
-      fetch(host + "/api/admin/permissions/groups", {
-        credentials: credentialsValue,
-      })
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error(`Unexpected response (${response.statusText}).`);
-          }
-          return response.json();
-        })
-        .then((json) => {
+      defaultJSONFetch(
+        "/api/admin/permissions/groups",
+        t("Nutzergruppen"),
+        (json) =>
           set((state) => ({
             permission: {
               ...state.permission,
               groups: json,
             },
-          }));
-          onSuccess?.();
-        })
-        .catch((error) => {
-          console.error(error);
-          onFail?.(error.message);
-        });
+          })),
+        onSuccess,
+        onFail
+      );
     },
   },
   user: {
     userIds: [],
     users: {},
-    fetchUser: ({ userId, onSuccess, onFail }) => {
-      fetch(
-        host +
-          "/api/admin/user?" +
-          new URLSearchParams({ id: userId }).toString(),
-        { credentials: credentialsValue }
-      )
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error(`Unexpected response (${response.statusText}).`);
-          }
-          return response.json();
-        })
-        .then((json) => {
+    fetchUser: ({ userId, onSuccess, onFail }) =>
+      defaultJSONFetch(
+        "/api/admin/user?" + new URLSearchParams({ id: userId }).toString(),
+        t("Nutzerkonfiguration") +
+          ` '${get().user.users[userId]?.username ?? userId}'`,
+        (json) =>
           set((state) => ({
             user: {
               ...state.user,
               users: { ...state.user.users, [userId]: json },
             },
-          }));
-          onSuccess?.(json);
-        })
-        .catch((error) => {
-          console.error(error);
-          onFail?.(error.message);
-        });
-    },
+          })),
+        onSuccess,
+        onFail
+      ),
     fetchList: ({ useACL = false, onSuccess, onFail, replace = false }) => {
       if (useACL && !get().session.acl?.READ_USERCONFIG) return;
-      fetch(host + "/api/admin/users", { credentials: credentialsValue })
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error(`Unexpected response (${response.statusText}).`);
-          }
-          return response.json();
-        })
-        .then((json) => {
+      defaultJSONFetch(
+        "/api/admin/users",
+        t("Nutzerliste"),
+        (json) =>
           set((state) =>
             replace
               ? { user: { ...state.user, userIds: json, users: {} } }
               : { user: { ...state.user, userIds: json } }
-          );
-          onSuccess?.();
-        })
-        .catch((error) => {
-          console.error(error);
-          onFail?.(error.message);
-        });
+          ),
+        onSuccess,
+        onFail
+      );
     },
   },
   template: {
     templateIds: [],
     templates: {},
-    fetchTemplate: ({ templateId, onSuccess, onFail }) => {
-      fetch(
-        host +
-          "/api/admin/template?" +
+    fetchTemplate: ({ templateId, onSuccess, onFail }) =>
+      defaultJSONFetch(
+        "/api/admin/template?" +
           new URLSearchParams({ id: templateId }).toString(),
-        { credentials: credentialsValue }
-      )
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error(`Unexpected response (${response.statusText}).`);
-          }
-          return response.json();
-        })
-        .then((json) => {
+        t("Template") +
+          ` '${get().template.templates[templateId]?.name ?? templateId}'`,
+        (json) =>
           set((state) => ({
             template: {
               ...state.template,
               templates: { ...state.template.templates, [templateId]: json },
             },
-          }));
-          onSuccess?.(json);
-        })
-        .catch((error) => {
-          console.error(error);
-          onFail?.(error.message);
-        });
-    },
+          })),
+        onSuccess,
+        onFail
+      ),
     fetchList: ({ useACL = false, onSuccess, onFail, replace = false }) => {
       if (useACL && !get().session.acl?.READ_TEMPLATE) return;
-      fetch(host + "/api/admin/templates", { credentials: credentialsValue })
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error(`Unexpected response (${response.statusText}).`);
-          }
-          return response.json();
-        })
-        .then((json) => {
-          set((state) => ({
-            template: { ...state.template, templateIds: json },
-          }));
+      defaultJSONFetch(
+        "/api/admin/templates",
+        t("Templateliste"),
+        (json) =>
           set((state) =>
             replace
               ? {
@@ -337,59 +277,41 @@ const useGlobalStore = create<GlobalStore>()((set, get) => ({
               : {
                   template: { ...state.template, templateIds: json },
                 }
-          );
-          onSuccess?.();
-        })
-        .catch((error) => {
-          console.error(error);
-          onFail?.(error.message);
-        });
+          ),
+        onSuccess,
+        onFail
+      );
     },
     hotfolderImportSources: {},
     fetchHotfolderImportSources: ({ useACL = false, onSuccess, onFail }) => {
       if (useACL && !get().session.acl?.READ_TEMPLATE) return;
-      fetch(host + "/api/admin/template/hotfolder-sources", {
-        credentials: credentialsValue,
-      })
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error(`Unexpected response (${response.statusText}).`);
-          }
-          return response.json();
-        })
-        .then((json) => {
-          const srcsRecord: Record<string, HotfolderImportSource> = {};
-          for (const src of json) {
-            srcsRecord[src.id] = src;
-          }
+      defaultJSONFetch(
+        "/api/admin/template/hotfolder-sources",
+        t("Importquellen"),
+        (json) =>
           set((state) => ({
-            template: { ...state.template, hotfolderImportSources: srcsRecord },
-          }));
-          onSuccess?.();
-        })
-        .catch((error) => {
-          console.error(error);
-          onFail?.(error.message);
-        });
+            template: {
+              ...state.template,
+              hotfolderImportSources: Object.fromEntries(
+                json.map((src: HotfolderImportSource) => [src.id, src])
+              ),
+            },
+          })),
+        onSuccess,
+        onFail
+      );
     },
   },
   workspace: {
     workspaceIds: [],
     workspaces: {},
-    fetchWorkspace: ({ workspaceId, onSuccess, onFail }) => {
-      fetch(
-        host +
-          "/api/admin/workspace?" +
+    fetchWorkspace: ({ workspaceId, onSuccess, onFail }) =>
+      defaultJSONFetch(
+        "/api/admin/workspace?" +
           new URLSearchParams({ id: workspaceId }).toString(),
-        { credentials: credentialsValue }
-      )
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error(`Unexpected response (${response.statusText}).`);
-          }
-          return response.json();
-        })
-        .then((json) => {
+        t("Arbeitsbereich") +
+          ` '${get().workspace.workspaces[workspaceId]?.name ?? workspaceId}'`,
+        (json) =>
           set((state) => ({
             workspace: {
               ...state.workspace,
@@ -398,77 +320,59 @@ const useGlobalStore = create<GlobalStore>()((set, get) => ({
                 [workspaceId]: json,
               },
             },
-          }));
-          onSuccess?.(json);
-        })
-        .catch((error) => {
-          console.error(error);
-          onFail?.(error.message);
-        });
-    },
-    fetchList: ({ useACL = false, onSuccess, onFail }) => {
+          })),
+        onSuccess,
+        onFail
+      ),
+    fetchList: ({ useACL = false, onSuccess, onFail, replace = false }) => {
       if (useACL && !get().session.acl?.READ_WORKSPACE) return;
-      fetch(host + "/api/admin/workspaces", { credentials: credentialsValue })
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error(`Unexpected response (${response.statusText}).`);
-          }
-          return response.json();
-        })
-        .then((json) => {
-          set((state) => ({
-            workspace: { ...state.workspace, workspaceIds: json },
-          }));
-          onSuccess?.();
-        })
-        .catch((error) => {
-          console.error(error);
-          onFail?.(error.message);
-        });
+      defaultJSONFetch(
+        "/api/admin/workspaces",
+        t("Arbeitsbereichliste"),
+        (json) =>
+          set((state) =>
+            replace
+              ? {
+                  workspace: {
+                    ...state.workspace,
+                    workspaceIds: json,
+                    workspaces: {},
+                  },
+                }
+              : {
+                  workspace: { ...state.workspace, workspaceIds: json },
+                }
+          ),
+        onSuccess,
+        onFail
+      );
     },
   },
   job: {
     jobConfigIds: [],
     jobConfigs: {},
-    fetchJobConfig: ({ jobConfigId, onSuccess, onFail }) => {
-      fetch(
-        host +
-          "/api/curator/job-config?" +
+    fetchJobConfig: ({ jobConfigId, onSuccess, onFail }) =>
+      defaultJSONFetch(
+        "/api/curator/job-config?" +
           new URLSearchParams({ id: jobConfigId }).toString(),
-        { credentials: credentialsValue }
-      )
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error(`Unexpected response (${response.statusText}).`);
-          }
-          return response.json();
-        })
-        .then((json) => {
+        t("Jobkonfiguration") +
+          ` '${get().job.jobConfigs[jobConfigId]?.name ?? jobConfigId}'`,
+        (json) =>
           set((state) => ({
             job: {
               ...state.job,
               jobConfigs: { ...state.job.jobConfigs, [jobConfigId]: json },
             },
-          }));
-          onSuccess?.(json);
-        })
-        .catch((error) => {
-          console.error(error);
-          onFail?.(error.message);
-        });
-    },
+          })),
+        onSuccess,
+        onFail
+      ),
     fetchList: ({ useACL = false, onSuccess, onFail, replace = false }) => {
       if (useACL && !get().session.acl?.READ_JOBCONFIG) return;
-      fetch(host + "/api/curator/job-configs", {
-        credentials: credentialsValue,
-      })
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error(`Unexpected response (${response.statusText}).`);
-          }
-          return response.json();
-        })
-        .then((json) => {
+      defaultJSONFetch(
+        "/api/curator/job-configs",
+        t("Jobliste"),
+        (json) =>
           set((state) =>
             replace
               ? {
@@ -477,13 +381,10 @@ const useGlobalStore = create<GlobalStore>()((set, get) => ({
               : {
                   job: { ...state.job, jobConfigIds: json },
                 }
-          );
-          onSuccess?.();
-        })
-        .catch((error) => {
-          console.error(error);
-          onFail?.(error.message);
-        });
+          ),
+        onSuccess,
+        onFail
+      );
     },
     jobInfos: {},
     fetchJobInfo: ({ token, useACL, forceReload, onSuccess, onFail }) => {
@@ -492,59 +393,33 @@ const useGlobalStore = create<GlobalStore>()((set, get) => ({
         onSuccess?.(get().job.jobInfos[token]);
         return;
       }
-      fetch(
-        host +
-          "/api/curator/job/info?" +
-          new URLSearchParams({ token }).toString(),
-        {
-          credentials: credentialsValue,
-        }
-      )
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error(`Unexpected response (${response.statusText}).`);
-          }
-          return response.json();
-        })
-        .then((json) => {
+      defaultJSONFetch(
+        "/api/curator/job/info?" + new URLSearchParams({ token }).toString(),
+        t("Job") + ` '${token}'`,
+        (json) =>
           set((state) => ({
             job: {
               ...state.job,
               jobInfos: { ...state.job.jobInfos, [token]: json },
             },
-          }));
-          onSuccess?.(json);
-        })
-        .catch((error) => {
-          console.error(error);
-          onFail?.(error.message);
-        });
+          })),
+        onSuccess,
+        onFail
+      );
     },
-    fetchRecordsByJobConfig: ({ jobConfigId, success, onSuccess, onFail }) => {
-      fetch(
-        host +
-          "/api/curator/job/records?" +
+    fetchRecordsByJobConfig: ({ jobConfigId, success, onSuccess, onFail }) =>
+      defaultJSONFetch(
+        "/api/curator/job/records?" +
           new URLSearchParams({
             ...{ id: jobConfigId },
             ...(success === undefined ? {} : { success }),
           }).toString(),
-        {
-          credentials: credentialsValue,
-        }
-      )
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error(`Unexpected response (${response.statusText}).`);
-          }
-          return response.json();
-        })
-        .then((json) => {
-          onSuccess?.(json);
-        })
-        .catch((error) => {
-          onFail?.(error.message);
-        });
-    },
+        t("Records zur Konfiguration") +
+          ` '${get().job.jobConfigs[jobConfigId]?.name ?? jobConfigId}'`,
+        undefined,
+        onSuccess,
+        onFail
+      ),
   },
 }));
 

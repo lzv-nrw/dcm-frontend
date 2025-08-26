@@ -22,7 +22,7 @@ import { FiCheck, FiAlertTriangle, FiCircle } from "react-icons/fi";
 import t from "../../utils/translation";
 import { getTextInputColor } from "../../utils/forms";
 import useGlobalStore from "../../store";
-import { devMode } from "../../App";
+import { credentialsValue, devMode, host } from "../../App";
 import Modal from "../../components/Modal";
 
 export const StageOrder = [
@@ -67,7 +67,6 @@ export function getStageTitle(stage: string): string {
   }
 }
 
-
 interface DebugJobModalProps {
   show: boolean;
   initialToken?: string;
@@ -85,6 +84,8 @@ export default function DebugJobModal({
   const [jobInfos, fetchJobInfo] = useGlobalStore(
     useShallow((state) => [state.job.jobInfos, state.job.fetchJobInfo])
   );
+
+  const [loadingAbort, setLoadingAbort] = useState(false);
 
   // disable initial 404-error-message for jobs that have not been started yet
   useEffect(() => {
@@ -107,9 +108,9 @@ export default function DebugJobModal({
             setError(e);
           },
         });
-    }, 100);
+    }, 1000);
     return () => clearInterval(interval);
-  }, [token, jobInfos, fetchJobInfo]);
+  }, [token, jobInfos, loadingAbort, fetchJobInfo]);
 
   function getTimelinePointTheme(ok?: boolean): any {
     let tc, bgc;
@@ -137,7 +138,7 @@ export default function DebugJobModal({
   return (
     <Modal show={show} width="7xl" onClose={onClose} dismissible={true}>
       <Modal.Header title={t("Verfolge Job ") + (token ? `'${token}'` : "")} />
-      <Modal.Body>
+      <Modal.Body className="py-4">
         <div className="space-y-2">
           {devMode && (
             <>
@@ -286,7 +287,11 @@ export default function DebugJobModal({
               </Tabs>
             </div>
           )}
-          <div className="flex flex-row w-full justify-between">
+        </div>
+      </Modal.Body>
+      <Modal.Footer>
+        <div className="flex flex-row w-full justify-between">
+          <div className="flex flex-row space-x-2">
             {devMode ? (
               <Button
                 disabled={jobInfos[token] === undefined}
@@ -300,13 +305,47 @@ export default function DebugJobModal({
               >
                 {t("Inspizieren")}
               </Button>
-            ) : (
-              <div />
-            )}
-            <Button onClick={onClose}>{t("Schließen")}</Button>
+            ) : null}
+            <Button
+              disabled={
+                loadingAbort ||
+                !["queued", "running"].includes(jobInfos[token]?.status ?? "")
+              }
+              onClick={() => {
+                setLoadingAbort(true);
+                fetch(host + "/api/curator/job", {
+                  method: "DELETE",
+                  credentials: credentialsValue,
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({ token: token }),
+                })
+                  .then(async (response) => {
+                    setLoadingAbort(false);
+                    if (!response.ok) {
+                      throw new Error(
+                        `Unexpected response (${await response.text()}).`
+                      );
+                    }
+                    fetchJobInfo({
+                      token,
+                      useACL: true,
+                      forceReload: true,
+                    });
+                  })
+                  .catch((error) => {
+                    setLoadingAbort(false);
+                    setError(error.message);
+                  });
+              }}
+            >
+              {loadingAbort ? <Spinner size="sm" /> : t("Job abbrechen")}
+            </Button>
           </div>
+          <Button onClick={onClose}>{t("Schließen")}</Button>
         </div>
-      </Modal.Body>
+      </Modal.Footer>
     </Modal>
   );
 }

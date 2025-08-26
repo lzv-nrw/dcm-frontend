@@ -3,6 +3,9 @@
 This flask app serves the frontend client and implements a frontend-API.
 """
 
+import sys
+from hashlib import sha512
+
 from flask import Flask
 from flask_login import LoginManager
 from dcm_common.services import extensions
@@ -66,29 +69,43 @@ def app_factory(config: AppConfig):
     # register extensions
     login_manager = LoginManager(app)
 
+    # session_key calculation-optimization (do not re-calculate keys)
+    # session_key_store maps session id to session key in memory
+    session_key_store = {}
+
     @login_manager.user_loader
     def load_user(session_id):
         """
         Load the user object from the user ID stored in the session.
         """
-        # get session
-        session = config.sessions.read(session_id)
+        # get session-key
+        if session_id not in session_key_store:
+            session_key_store[session_id] = sha512(
+                session_id.encode(encoding="utf-8")
+            ).hexdigest()
+        session_key = session_key_store[session_id]
+        # get record from sessions-db
+        session = config.sessions.read(session_key)
 
         if session is None:
-            config.sessions.delete(session_id)
+            print(
+                "authentication using a session-id failed (unknown id)",
+                file=sys.stderr,
+            )
+            config.sessions.delete(session_key)
             return None
 
         user_config_id = session.get("userConfigId")
         # session is somehow broken
         if user_config_id is None:
-            config.sessions.delete(session_id)
+            config.sessions.delete(session_key)
             return None
 
         # check session expiration
         if not view_auth.check_session_expiration(session):
-            config.sessions.delete(session_id)
+            config.sessions.delete(session_key)
             return None
-        view_auth.update_session_expiration(session_id, session)
+        view_auth.update_session_expiration(session_key, session)
 
         # get associated user-config
         if config.SESSION_DISABLE_USER_CACHING:
@@ -110,9 +127,9 @@ def app_factory(config: AppConfig):
                 config.user_configs.write(user_config_id, user_config)
 
         return Session(
-            session_id,
-            user_config_id,
-            User({}) if user_config is None else User(user_config),
+            key=session_key,
+            user_config_id=user_config_id,
+            user=User({}) if user_config is None else User(user_config),
         )
 
     # cleanup old sessions

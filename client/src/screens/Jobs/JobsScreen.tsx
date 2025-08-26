@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { createContext, useEffect, useState } from "react";
 import { Label, Select, Button, TextInput, Table, Alert } from "flowbite-react";
 import { Navigate } from "react-router";
 
@@ -7,6 +7,10 @@ import { truncateText } from "../../utils/forms";
 import { formatJobConfigStatus } from "../../utils/util";
 import { JobConfig } from "../../types";
 import useGlobalStore from "../../store";
+import MessageBox, {
+  MessageHandler,
+  useMessageHandler,
+} from "../../components/MessageBox";
 import { devMode } from "../../App";
 import CUModal from "./CUModal/Modal";
 import * as TableCells from "./TableCells";
@@ -81,12 +85,17 @@ const tableColumns: TableColumn[] = [
   },
 ];
 
+export const ErrorMessageContext = createContext<MessageHandler | undefined>(
+  undefined
+);
+
 interface JobsScreenProps {
   useACL?: boolean;
 }
 
 export default function JobsScreen({ useACL = false }: JobsScreenProps) {
-  const [error, setError] = useState<string | null>(null);
+  const errorMessageHandler = useMessageHandler([]);
+
   const [workspaceFilter, setWorkspaceFilter] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [searchFor, setSearchFor] = useState<string | null>(null);
@@ -108,7 +117,10 @@ export default function JobsScreen({ useACL = false }: JobsScreenProps) {
       jobStore.fetchList({
         useACL: useACL,
         onFail: (msg) =>
-          setError(`Unable to list job configuration ids: ${msg}`),
+          errorMessageHandler.pushMessage({
+            id: "fetch-job-config-list",
+            text: msg,
+          }),
       }),
     // eslint-disable-next-line
     []
@@ -119,7 +131,15 @@ export default function JobsScreen({ useACL = false }: JobsScreenProps) {
       jobStore.fetchJobConfig({
         jobConfigId,
         onFail: (msg) =>
-          setError(`Unable to load job configuration (${jobConfigId}): ${msg}`),
+          errorMessageHandler.pushMessage({
+            id: `fetch-job-config-${jobConfigId}`,
+            text: msg,
+          }),
+        // load latestExec-info as well if successful and available
+        onSuccess: (config) => {
+          if (!config?.latestExec) return;
+          jobStore.fetchJobInfo({ token: config?.latestExec });
+        },
       });
     }
     // eslint-disable-next-line
@@ -129,7 +149,11 @@ export default function JobsScreen({ useACL = false }: JobsScreenProps) {
     () =>
       templateStore.fetchList({
         useACL: useACL,
-        onFail: (msg) => setError(`Unable to list template ids: ${msg}`),
+        onFail: (msg) =>
+          errorMessageHandler.pushMessage({
+            id: `fetch-template-config-list`,
+            text: msg,
+          }),
       }),
     // eslint-disable-next-line
     [useACL]
@@ -140,9 +164,10 @@ export default function JobsScreen({ useACL = false }: JobsScreenProps) {
       templateStore.fetchTemplate({
         templateId,
         onFail: (msg) =>
-          setError(
-            `Unable to load template configuration (${templateId}): ${msg}`
-          ),
+          errorMessageHandler.pushMessage({
+            id: `fetch-template-config-${templateId}`,
+            text: msg,
+          }),
       });
     }
     // eslint-disable-next-line
@@ -152,7 +177,11 @@ export default function JobsScreen({ useACL = false }: JobsScreenProps) {
     () =>
       workspaceStore.fetchList({
         useACL: useACL,
-        onFail: (msg) => setError(`Unable to list workspace ids: ${msg}`),
+        onFail: (msg) =>
+          errorMessageHandler.pushMessage({
+            id: `fetch-workspace-config-list`,
+            text: msg,
+          }),
       }),
     // eslint-disable-next-line
     []
@@ -163,9 +192,10 @@ export default function JobsScreen({ useACL = false }: JobsScreenProps) {
       workspaceStore.fetchWorkspace({
         workspaceId,
         onFail: (msg) =>
-          setError(
-            `Unable to load workspace configuration (${workspaceId}): ${msg}`
-          ),
+          errorMessageHandler.pushMessage({
+            id: `fetch-workspace-config-${workspaceId}`,
+            text: msg,
+          }),
       });
     }
     // eslint-disable-next-line
@@ -190,276 +220,285 @@ export default function JobsScreen({ useACL = false }: JobsScreenProps) {
   return useACL && !acl?.VIEW_SCREEN_JOBS ? (
     <Navigate to="/" replace />
   ) : (
-    <div className="mx-20 mt-4">
-      <div className="flex justify-between items-center relative w-full mb-10">
-        <h3 className="text-4xl font-bold">{t("Jobs")}</h3>
-        <div className="flex flex-row space-x-2">
-          {!devMode || (useACL && !acl?.READ_JOB) ? null : (
-            <>
-              <Button type="button" onClick={() => setShowDebugJobModal(true)}>
-                {t("Job verfolgen")}
-              </Button>
-              <DebugJobModal
-                show={showDebugJobModal}
-                onClose={() => {
-                  setShowDebugJobModal(false);
-                }}
-              />
-            </>
-          )}
-          {useACL && !acl?.CREATE_JOBCONFIG ? null : (
-            <>
-              <Button
-                type="button"
-                onClick={() => setShowCUModal(true)}
-              >
-                {t("Neuen Job anlegen")}
-              </Button>
-              <CUModal
-                show={showCUModal}
-                onClose={() => setShowCUModal(false)}
-              />
-            </>
-          )}
-        </div>
-      </div>
-      {error ? (
-        <Alert color="failure" onDismiss={() => setError(null)}>
-          {error}
-        </Alert>
-      ) : null}
-      {useACL && !acl?.READ_JOBCONFIG ? (
-        <Alert className="my-2" color="warning">
-          {t("Kein Lese-Zugriff auf Jobkonfigurationen.")}
-        </Alert>
-      ) : (
-        <>
-          <div className="flex justify-between items-center relative w-full my-4">
-            <div className="flex flex-row space-x-2 items-center px-2">
-              <Label className="min-w-20 mx-2" value={t("Filtern nach")} />
-              <Select
-                className="min-w-32"
-                onChange={(event) => setWorkspaceFilter(event.target.value)}
-              >
-                <option value="">{t("Arbeitsbereich")}</option>
-                {findWorkspaceIds(Object.values(jobStore.jobConfigs))
-                  .sort((a, b) =>
-                    workspaceStore.workspaces[a]?.name.toLowerCase() >
-                    workspaceStore.workspaces[b]?.name.toLowerCase()
-                      ? 1
-                      : -1
-                  )
-                  .map((workspace) => (
-                    <option key={workspace} value={workspace}>
-                      {truncateText(
-                        workspaceStore.workspaces[workspace]?.name ?? "",
-                        30
-                      )}
-                    </option>
-                  ))}
-              </Select>
-              <Select
-                className="min-w-24"
-                onChange={(event) => setStatusFilter(event.target.value)}
-              >
-                <option value="">{t("Status")}</option>
-                {
-                  // fill in options by generating the labels that are also
-                  // used in the table cells
-                }
-                <option
-                  value={formatJobConfigStatus({
-                    id: "",
-                    status: "ok",
-                    schedule: { active: false },
-                  })}
+    <ErrorMessageContext.Provider value={errorMessageHandler}>
+      <div className="mx-20 mt-4">
+        <div className="flex justify-between items-center relative w-full mb-5">
+          <h3 className="text-4xl font-bold">{t("Jobs")}</h3>
+          <div className="flex flex-row space-x-2">
+            {!devMode || (useACL && !acl?.READ_JOB) ? null : (
+              <>
+                <Button
+                  type="button"
+                  onClick={() => setShowDebugJobModal(true)}
                 >
-                  {t(
-                    formatJobConfigStatus({
-                      id: "",
-                      status: "ok",
-                      schedule: { active: false },
-                    })
-                  )}
-                </option>
-                <option
-                  value={formatJobConfigStatus({
-                    id: "",
-                    status: "ok",
-                    schedule: { active: true },
-                  })}
-                >
-                  {t(
-                    formatJobConfigStatus({
-                      id: "",
-                      status: "ok",
-                      schedule: { active: true },
-                    })
-                  )}
-                </option>
-                <option
-                  value={formatJobConfigStatus({
-                    id: "",
-                    status: "draft",
-                  })}
-                >
-                  {t(
-                    formatJobConfigStatus({
-                      id: "",
-                      status: "draft",
-                    })
-                  )}
-                </option>
-              </Select>
-            </div>
-            <div className="flex justify-between items-center">
-              <TextInput
-                className="min-w-32"
-                type="text"
-                placeholder={t("Suche nach")}
-                onChange={(e) => {
-                  const text = e.target.value.trim();
-                  if (text === "") setSearchFor(null);
-                  else setSearchFor(text);
-                }}
-              />
-              <div className="flex flex-row items-center ml-2">
-                <Label
-                  className="min-w-24 mx-2"
-                  htmlFor="sortBy"
-                  value={t("Sortieren nach")}
+                  {t("Job verfolgen")}
+                </Button>
+                <DebugJobModal
+                  show={showDebugJobModal}
+                  onClose={() => {
+                    setShowDebugJobModal(false);
+                  }}
                 />
+              </>
+            )}
+            {useACL && !acl?.CREATE_JOBCONFIG ? null : (
+              <>
+                <Button type="button" onClick={() => setShowCUModal(true)}>
+                  {t("Neuen Job anlegen")}
+                </Button>
+                <CUModal
+                  show={showCUModal}
+                  onClose={() => setShowCUModal(false)}
+                />
+              </>
+            )}
+          </div>
+        </div>
+        <MessageBox
+          messages={errorMessageHandler.messages}
+          messageTitle={t("Ein Fehler ist aufgetreten:")}
+          onDismiss={errorMessageHandler.clearMessages}
+        />
+        {useACL && !acl?.READ_JOBCONFIG ? (
+          <Alert className="my-2" color="warning">
+            {t("Kein Lese-Zugriff auf Jobkonfigurationen.")}
+          </Alert>
+        ) : (
+          <>
+            <div className="flex justify-between items-center relative w-full my-4">
+              <div className="flex flex-row space-x-2 items-center px-2">
+                <Label className="min-w-20 mx-2" value={t("Filtern nach")} />
                 <Select
                   className="min-w-32"
-                  id="sortBy"
-                  onChange={(e) => {
-                    if (
-                      (
-                        [
-                          ColumnIdentifier.Name,
-                          ColumnIdentifier.Template,
-                          ColumnIdentifier.Workspace,
-                          ColumnIdentifier.ScheduledExec,
-                          ColumnIdentifier.Status,
-                        ] as string[]
-                      ).includes(e.target.value)
-                    )
-                      setSortBy(e.target.value as ColumnIdentifier);
-                    else setError(`Unknown sort-by id '${e.target.value}'.`);
-                  }}
+                  onChange={(event) => setWorkspaceFilter(event.target.value)}
                 >
-                  {tableColumns
-                    .filter(
-                      (item) =>
-                        item.id !== undefined &&
-                        [
-                          ColumnIdentifier.Name,
-                          ColumnIdentifier.Template,
-                          ColumnIdentifier.Workspace,
-                          ColumnIdentifier.ScheduledExec,
-                          ColumnIdentifier.Status,
-                        ].includes(item.id)
+                  <option value="">{t("Arbeitsbereich")}</option>
+                  {findWorkspaceIds(Object.values(jobStore.jobConfigs))
+                    .sort((a, b) =>
+                      workspaceStore.workspaces[a]?.name.toLowerCase() >
+                      workspaceStore.workspaces[b]?.name.toLowerCase()
+                        ? 1
+                        : -1
                     )
-                    .filter((item) => item.id !== undefined)
-                    .map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name}
+                    .map((workspace) => (
+                      <option key={workspace} value={workspace}>
+                        {truncateText(
+                          workspaceStore.workspaces[workspace]?.name ?? "",
+                          30
+                        )}
                       </option>
                     ))}
                 </Select>
+                <Select
+                  className="min-w-24"
+                  onChange={(event) => setStatusFilter(event.target.value)}
+                >
+                  <option value="">{t("Status")}</option>
+                  {
+                    // fill in options by generating the labels that are also
+                    // used in the table cells
+                  }
+                  <option
+                    value={formatJobConfigStatus({
+                      id: "",
+                      status: "ok",
+                      schedule: { active: false },
+                    })}
+                  >
+                    {t(
+                      formatJobConfigStatus({
+                        id: "",
+                        status: "ok",
+                        schedule: { active: false },
+                      })
+                    )}
+                  </option>
+                  <option
+                    value={formatJobConfigStatus({
+                      id: "",
+                      status: "ok",
+                      schedule: { active: true },
+                    })}
+                  >
+                    {t(
+                      formatJobConfigStatus({
+                        id: "",
+                        status: "ok",
+                        schedule: { active: true },
+                      })
+                    )}
+                  </option>
+                  <option
+                    value={formatJobConfigStatus({
+                      id: "",
+                      status: "draft",
+                    })}
+                  >
+                    {t(
+                      formatJobConfigStatus({
+                        id: "",
+                        status: "draft",
+                      })
+                    )}
+                  </option>
+                </Select>
+              </div>
+              <div className="flex justify-between items-center">
+                <TextInput
+                  className="min-w-32"
+                  type="text"
+                  placeholder={t("Suche nach")}
+                  onChange={(e) => {
+                    const text = e.target.value.trim();
+                    if (text === "") setSearchFor(null);
+                    else setSearchFor(text);
+                  }}
+                />
+                <div className="flex flex-row items-center ml-2">
+                  <Label
+                    className="min-w-24 mx-2"
+                    htmlFor="sortBy"
+                    value={t("Sortieren nach")}
+                  />
+                  <Select
+                    className="min-w-32"
+                    id="sortBy"
+                    onChange={(e) => {
+                      if (
+                        (
+                          [
+                            ColumnIdentifier.Name,
+                            ColumnIdentifier.Template,
+                            ColumnIdentifier.Workspace,
+                            ColumnIdentifier.ScheduledExec,
+                            ColumnIdentifier.Status,
+                          ] as string[]
+                        ).includes(e.target.value)
+                      )
+                        setSortBy(e.target.value as ColumnIdentifier);
+                      else
+                        errorMessageHandler.pushMessage({
+                          id: "unknown-sort-by-id",
+                          text: t(
+                            `Unbekannter Schlüssel '${e.target.value}' beim Sortieren.`
+                          ),
+                        });
+                    }}
+                  >
+                    {tableColumns
+                      .filter(
+                        (item) =>
+                          item.id !== undefined &&
+                          [
+                            ColumnIdentifier.Name,
+                            ColumnIdentifier.Template,
+                            ColumnIdentifier.Workspace,
+                            ColumnIdentifier.ScheduledExec,
+                            ColumnIdentifier.Status,
+                          ].includes(item.id)
+                      )
+                      .filter((item) => item.id !== undefined)
+                      .map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name}
+                        </option>
+                      ))}
+                  </Select>
+                </div>
               </div>
             </div>
-          </div>
-          <div className="overflow-x-auto">
-            <div className="table w-full p-1 pb-2">
-              <Table hoverable>
-                <Table.Head>
-                  {tableColumns.map((item) => (
-                    <item.Cell key={item.name} />
-                  ))}
-                </Table.Head>
-                <Table.Body className="divide-y">
-                  {Object.values(jobStore.jobConfigs)
-                    .filter(
-                      (config) =>
-                        statusFilter === "" ||
-                        statusFilter === formatJobConfigStatus(config)
-                    )
-                    .filter(
-                      (config) =>
-                        workspaceFilter === "" ||
-                        workspaceFilter === config.workspaceId
-                    )
-                    .filter(
-                      (config) =>
-                        searchFor === null ||
-                        (
-                          "" +
-                          (config.name ?? "") +
-                          (config.templateId
-                            ? templateStore.templates[config.templateId]?.name
-                            : "") +
-                          (config.workspaceId
-                            ? workspaceStore.workspaces[config.workspaceId]
-                                ?.name
-                            : "") +
-                          t(formatJobConfigStatus(config))
-                        )
-                          .toLowerCase()
-                          .includes(searchFor.toLowerCase())
-                    )
-                    .sort((a, b) => {
-                      switch (sortBy) {
-                        case "name":
-                          return (a.name ?? "-") < (b.name ?? "-") ? -1 : 1;
-                        case "template":
-                          return (a.templateId
-                            ? templateStore.templates[a.templateId].name ?? ""
-                            : "-") <
-                            (b.templateId
-                              ? templateStore.templates[b.templateId].name ?? ""
-                              : "-")
-                            ? -1
-                            : 1;
-                        case "workspace":
-                          return (a.workspaceId
-                            ? workspaceStore.workspaces[a.workspaceId].name ??
-                              ""
-                            : "-") <
-                            (b.workspaceId
-                              ? workspaceStore.workspaces[b.workspaceId].name ??
-                                ""
-                              : "-")
-                            ? -1
-                            : 1;
-                        case "scheduledExec":
-                          return (a.scheduledExec ?? "-") >
-                            (b.scheduledExec ?? "")
-                            ? -1
-                            : 1;
-                        case "status":
-                          return (t(formatJobConfigStatus(a)).toLowerCase() ??
-                            0) <
-                            (t(formatJobConfigStatus(b)).toLowerCase() ?? 0)
-                            ? -1
-                            : 1;
-                        default:
-                          return 1;
-                      }
-                    })
-                    .map((config) => (
-                      <Table.Row key={config.id}>
-                        {tableColumns.map((item) => (
-                          <item.Cell key={item.id} config={config} />
-                        ))}
-                      </Table.Row>
+            <div className="overflow-x-auto">
+              <div className="table w-full p-1 pb-2">
+                <Table hoverable>
+                  <Table.Head>
+                    {tableColumns.map((item) => (
+                      <item.Cell key={item.name} />
                     ))}
-                </Table.Body>
-              </Table>
+                  </Table.Head>
+                  <Table.Body className="divide-y">
+                    {Object.values(jobStore.jobConfigs)
+                      .filter(
+                        (config) =>
+                          statusFilter === "" ||
+                          statusFilter === formatJobConfigStatus(config)
+                      )
+                      .filter(
+                        (config) =>
+                          workspaceFilter === "" ||
+                          workspaceFilter === config.workspaceId
+                      )
+                      .filter(
+                        (config) =>
+                          searchFor === null ||
+                          (
+                            "" +
+                            (config.name ?? "") +
+                            (config.templateId
+                              ? templateStore.templates[config.templateId]?.name
+                              : "") +
+                            (config.workspaceId
+                              ? workspaceStore.workspaces[config.workspaceId]
+                                  ?.name
+                              : "") +
+                            t(formatJobConfigStatus(config))
+                          )
+                            .toLowerCase()
+                            .includes(searchFor.toLowerCase())
+                      )
+                      .sort((a, b) => {
+                        switch (sortBy) {
+                          case "name":
+                            return (a.name ?? "-") < (b.name ?? "-") ? -1 : 1;
+                          case "template":
+                            return (a.templateId
+                              ? templateStore.templates[a.templateId].name ?? ""
+                              : "-") <
+                              (b.templateId
+                                ? templateStore.templates[b.templateId].name ??
+                                  ""
+                                : "-")
+                              ? -1
+                              : 1;
+                          case "workspace":
+                            return (a.workspaceId
+                              ? workspaceStore.workspaces[a.workspaceId].name ??
+                                ""
+                              : "-") <
+                              (b.workspaceId
+                                ? workspaceStore.workspaces[b.workspaceId]
+                                    .name ?? ""
+                                : "-")
+                              ? -1
+                              : 1;
+                          case "scheduledExec":
+                            return (a.scheduledExec ?? "-") >
+                              (b.scheduledExec ?? "")
+                              ? -1
+                              : 1;
+                          case "status":
+                            return (t(formatJobConfigStatus(a)).toLowerCase() ??
+                              0) <
+                              (t(formatJobConfigStatus(b)).toLowerCase() ?? 0)
+                              ? -1
+                              : 1;
+                          default:
+                            return 1;
+                        }
+                      })
+                      .map((config) => (
+                        <Table.Row key={config.id}>
+                          {tableColumns.map((item) => (
+                            <item.Cell key={item.id} config={config} />
+                          ))}
+                        </Table.Row>
+                      ))}
+                  </Table.Body>
+                </Table>
+              </div>
             </div>
-          </div>
-        </>
-      )}
-    </div>
+          </>
+        )}
+      </div>
+    </ErrorMessageContext.Provider>
   );
 }

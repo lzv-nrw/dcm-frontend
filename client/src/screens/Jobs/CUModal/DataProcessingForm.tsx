@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useContext } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
   Alert,
@@ -33,6 +33,7 @@ import {
   OperationType,
 } from "../../../components/OperationsForm/types";
 import { useFormStore } from "./store";
+import { ErrorMessageContext } from "./Modal";
 
 export type DataProcessingFormChildren =
   | "mapping"
@@ -165,6 +166,8 @@ export function DataProcessingForm({
     useShallow((state) => [state.validator, state.setCurrentValidationReport])
   );
 
+  const errorHandler = useContext(ErrorMessageContext);
+
   const [formVisited, setFormVisited] = useState(active);
 
   // track visited
@@ -174,24 +177,16 @@ export function DataProcessingForm({
 
   // form-configuration
   // * rights-metadata
-  const [rightsFieldsConfigurationError, setRightsFieldsConfigurationError] =
-    useState<string | null>(null);
   const [
     rightsFieldsConfigurationLoading,
     setRightsFieldsConfigurationLoading,
   ] = useState(false);
   // * sigProp-metadata
-  const [sigPropFieldsConfigurationError, setSigPropFieldsConfigurationError] =
-    useState<string | null>(null);
   const [
     sigPropFieldsConfigurationLoading,
     setSigPropFieldsConfigurationLoading,
   ] = useState(false);
   // * preservation-metadata
-  const [
-    preservationFieldsConfigurationError,
-    setPreservationFieldsConfigurationError,
-  ] = useState<string | null>(null);
   const [
     preservationFieldsConfigurationLoading,
     setPreservationFieldsConfigurationLoading,
@@ -243,18 +238,24 @@ export function DataProcessingForm({
   // load rightsFieldsConfiguration from API
   useEffect(() => {
     setRightsFieldsConfigurationLoading(true);
+    errorHandler?.removeMessage("rights-fields-configuration-bad-response");
+    errorHandler?.removeMessage("rights-fields-configuration-error");
     fetch(host + "/api/curator/job-config/configuration/rights", {
       credentials: credentialsValue,
     })
       .then((response) => {
         setRightsFieldsConfigurationLoading(false);
         if (!response.ok) {
-          setRightsFieldsConfigurationError(
-            `Unable to load rights-configuration (${response.statusText}).`
+          response.text().then((text) =>
+            errorHandler?.pushMessage({
+              id: `rights-fields-configuration-bad-response`,
+              text: `${t(
+                "Abfrage der Konfiguration für Rechteinformation fehlgeschlagen"
+              )}: ${text}`,
+            })
           );
           return;
         }
-        setRightsFieldsConfigurationError(null);
         response
           .json()
           .then((json) =>
@@ -263,13 +264,25 @@ export function DataProcessingForm({
       })
       .catch((error) => {
         setRightsFieldsConfigurationLoading(false);
-        setRightsFieldsConfigurationError(error.message);
+        errorHandler?.pushMessage({
+          id: `rights-fields-configuration-error`,
+          text: `${t(
+            "Abfrage der Konfiguration für Rechteinformation fehlgeschlagen"
+          )}: ${error.message}`,
+        });
       });
+    // eslint-disable-next-line
   }, [setDataProcessing]);
 
   // load sigPropFieldsConfiguration from API
   useEffect(() => {
     setSigPropFieldsConfigurationLoading(true);
+    errorHandler?.removeMessage(
+      "significant-properties-fields-configuration-bad-response"
+    );
+    errorHandler?.removeMessage(
+      "significant-properties-fields-configuration-error"
+    );
     fetch(
       host + "/api/curator/job-config/configuration/significant-properties",
       {
@@ -279,12 +292,16 @@ export function DataProcessingForm({
       .then((response) => {
         setSigPropFieldsConfigurationLoading(false);
         if (!response.ok) {
-          setSigPropFieldsConfigurationError(
-            `Unable to load 'significant properties'-configuration (${response.statusText}).`
+          response.text().then((text) =>
+            errorHandler?.pushMessage({
+              id: `significant-properties-fields-configuration-bad-response`,
+              text: `${t(
+                "Abfrage der Konfiguration für signifikante Eigenschaften fehlgeschlagen"
+              )}: ${text}`,
+            })
           );
           return;
         }
-        setSigPropFieldsConfigurationError(null);
         response
           .json()
           .then((json) =>
@@ -293,25 +310,39 @@ export function DataProcessingForm({
       })
       .catch((error) => {
         setSigPropFieldsConfigurationLoading(false);
-        setSigPropFieldsConfigurationError(error.message);
+        errorHandler?.pushMessage({
+          id: `significant-properties-fields-configuration-error`,
+          text: `${t(
+            "Abfrage der Konfiguration für signifikante Eigenschaften fehlgeschlagen"
+          )}: ${error.message}`,
+        });
       });
+    // eslint-disable-next-line
   }, [setDataProcessing]);
 
   // load preservationFieldsConfiguration from API
   useEffect(() => {
     setPreservationFieldsConfigurationLoading(true);
+    errorHandler?.removeMessage(
+      "preservation-fields-configuration-bad-response"
+    );
+    errorHandler?.removeMessage("preservation-fields-configuration-error");
     fetch(host + "/api/curator/job-config/configuration/preservation", {
       credentials: credentialsValue,
     })
       .then((response) => {
         setPreservationFieldsConfigurationLoading(false);
         if (!response.ok) {
-          setPreservationFieldsConfigurationError(
-            `Unable to load 'preservation'-configuration (${response.statusText}).`
+          response.text().then((text) =>
+            errorHandler?.pushMessage({
+              id: `preservation-fields-configuration-bad-response`,
+              text: `${t(
+                "Abfrage der Konfiguration für Preservation fehlgeschlagen"
+              )}: ${text}`,
+            })
           );
           return;
         }
-        setPreservationFieldsConfigurationError(null);
         response
           .json()
           .then((json) =>
@@ -320,8 +351,14 @@ export function DataProcessingForm({
       })
       .catch((error) => {
         setPreservationFieldsConfigurationLoading(false);
-        setPreservationFieldsConfigurationError(error.message);
+        errorHandler?.pushMessage({
+          id: `preservation-fields-configuration-error`,
+          text: `${t(
+            "Abfrage der Konfiguration für Preservation fehlgeschlagen"
+          )}: ${error.message}`,
+        });
       });
+    // eslint-disable-next-line
   }, [setDataProcessing]);
 
   // update available options for rights-fields
@@ -447,14 +484,22 @@ export function DataProcessingForm({
   ]);
   // * form section
   useEffect(() => {
-    if (!formVisited || active) return;
+    if (!formVisited) return;
+    if (validator.children?.dataProcessing?.report?.ok === undefined && active)
+      return;
     setCurrentValidationReport({
       children: {
         dataProcessing: validator.children?.dataProcessing?.validate(true),
       },
     });
     // eslint-disable-next-line
-  }, [active]);
+  }, [
+    active,
+    dataProcessing?.mapping,
+    dataProcessing?.rightsOperations,
+    dataProcessing?.sigPropOperations,
+    dataProcessing?.preservationOperations,
+  ]);
 
   /**
    * Reads the content of a given file and passes it as a string to
@@ -667,16 +712,8 @@ export function DataProcessingForm({
                   <Spinner size="lg" />
                 </div>
               )}
-              {rightsFieldsConfigurationError && (
-                <Alert
-                  color="failure"
-                  onDismiss={() => setRightsFieldsConfigurationError(null)}
-                >
-                  {rightsFieldsConfigurationError}
-                </Alert>
-              )}
               {!rightsFieldsConfigurationLoading &&
-                !rightsFieldsConfigurationError && (
+                dataProcessing?.rightsFieldsConfiguration !== undefined && (
                   <>
                     <p className="text-sm pb-4">
                       {rightsFieldsOpen.length > 0 ? (
@@ -793,16 +830,8 @@ export function DataProcessingForm({
                   <Spinner size="lg" />
                 </div>
               )}
-              {sigPropFieldsConfigurationError && (
-                <Alert
-                  color="failure"
-                  onDismiss={() => setSigPropFieldsConfigurationError(null)}
-                >
-                  {sigPropFieldsConfigurationError}
-                </Alert>
-              )}
               {!sigPropFieldsConfigurationLoading &&
-                !sigPropFieldsConfigurationError && (
+                dataProcessing?.sigPropFieldsConfiguration !== undefined && (
                   <>
                     <p className="text-sm pb-4">
                       {sigPropFieldsOpen.length > 0 ? (
@@ -919,18 +948,9 @@ export function DataProcessingForm({
                   <Spinner size="lg" />
                 </div>
               )}
-              {preservationFieldsConfigurationError && (
-                <Alert
-                  color="failure"
-                  onDismiss={() =>
-                    setPreservationFieldsConfigurationError(null)
-                  }
-                >
-                  {preservationFieldsConfigurationError}
-                </Alert>
-              )}
               {!preservationFieldsConfigurationLoading &&
-                !preservationFieldsConfigurationError && (
+                dataProcessing?.preservationFieldsConfiguration !==
+                  undefined && (
                   <>
                     <p className="text-sm pb-4">
                       {preservationFieldsOpen.length > 0 ? (

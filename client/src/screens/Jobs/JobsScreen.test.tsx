@@ -43,6 +43,10 @@ test("shows no error if fetch successful", async () => {
               status: "draft",
               templateId: "",
             });
+          if (url.endsWith("api/curator/job/records?id=jc0&success=false"))
+            return Promise.resolve([]);
+          if (url.endsWith("api/curator/job/records?id=jc0&success=true"))
+            return Promise.resolve([]);
           if (url.endsWith("api/curator/job-configs"))
             return Promise.resolve(["jc0"]);
         },

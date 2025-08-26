@@ -1,19 +1,27 @@
-import { useEffect, useState } from "react";
+import { createContext, useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { Alert, Button, Spinner } from "flowbite-react";
+import { Button, Spinner } from "flowbite-react";
 import { FiAlertCircle } from "react-icons/fi";
 
 import t from "../../../utils/translation";
-import { ValidationMessages } from "../../../utils/forms";
+import { applyReportToMessageHandler } from "../../../utils/forms";
 import useGlobalStore from "../../../store";
 import { credentialsValue, devMode, host } from "../../../App";
 import Modal from "../../../components/Modal";
 import SectionedForm from "../../../components/SectionedForm";
+import MessageBox, {
+  MessageHandler,
+  useMessageHandler,
+} from "../../../components/MessageBox";
 import { useFormStore } from "./store";
 import DescriptionForm from "./DescriptionForm";
 import SourceForm from "./SourceForm";
 import TargetForm from "./TargetForm";
 import { ConfigStatus } from "../../../types";
+
+export const ErrorMessageContext = createContext<MessageHandler | undefined>(
+  undefined
+);
 
 interface CUModalProps {
   show: boolean;
@@ -30,17 +38,18 @@ export default function CUModal({ show, onClose }: CUModalProps) {
   );
   const formStore = useFormStore();
 
-  const [error, setError] = useState<string | null>(null);
+  const errorMessageHandler = useMessageHandler([]);
   const [sendingDraft, setSendingDraft] = useState(false);
   const [sendingConfig, setSendingConfig] = useState(false);
 
   // reset form on hide
   useEffect(() => {
-    setError(null);
+    errorMessageHandler.clearMessages();
     setSendingDraft(false);
     setSendingConfig(false);
     setTab(0);
     if (!show) useFormStore.setState(useFormStore.getInitialState(), true);
+    // eslint-disable-next-line
   }, [show]);
 
   // perform validation if existing configuration has been loaded
@@ -70,20 +79,30 @@ export default function CUModal({ show, onClose }: CUModalProps) {
       .then((response) => {
         if (status === "draft") setSendingDraft(false);
         if (status === "ok") setSendingConfig(false);
-        if (response.ok) {
-          fetchTemplateList({});
-          onClose?.();
+        if (!response.ok) {
+          response.text().then((text) =>
+            errorMessageHandler.pushMessage({
+              id: "failed-submit-not-ok",
+              text: `${t(
+                `Absenden der Konfiguration nicht erfolgreich`
+              )}: ${text}`,
+            })
+          );
           return;
         }
-        response
-          .text()
-          .then((text) => setError(t("Unerwartete Antwort") + ": " + text));
+        fetchTemplateList({});
+        onClose?.();
       })
       .catch((error) => {
         if (status === "draft") setSendingDraft(false);
         if (status === "ok") setSendingConfig(false);
         console.error(error);
-        setError(t("Fehler beim Senden") + ": " + error?.toString());
+        errorMessageHandler.pushMessage({
+          id: "failed-submit-error",
+          text: `${t(`Fehler beim Absenden der Konfiguration`)}: ${
+            error.message
+          }`,
+        });
       });
   }
 
@@ -91,9 +110,11 @@ export default function CUModal({ show, onClose }: CUModalProps) {
     <Modal show={show} width="5xl" height="2xl" onClose={onClose} dismissible>
       <Modal.Header
         title={
-          formStore.id
-            ? t("Template bearbeiten")
-            : t("Neues Template erstellen")
+          !formStore.id
+            ? t("Neues Template erstellen")
+            : formStore.status === "draft"
+            ? t("Template-Entwurf bearbeiten")
+            : t("Template bearbeiten")
         }
       >
         {(formStore.linkedJobs ?? 0) > 0 ? (
@@ -108,36 +129,39 @@ export default function CUModal({ show, onClose }: CUModalProps) {
         ) : null}
       </Modal.Header>
       <Modal.Body>
-        {error ? (
-          <Alert color="failure" onDismiss={() => setError(null)}>
-            {error}
-          </Alert>
-        ) : null}
-        <SectionedForm
-          sections={[
-            {
-              tab: 0,
-              name: t("Beschreibung"),
-              Component: DescriptionForm,
-              ok: validator.children.description?.report?.ok,
-            },
-            {
-              tab: 1,
-              name: t("Quellsystem"),
-              Component: SourceForm,
-              ok: validator.children.source?.report?.ok,
-            },
-            {
-              tab: 2,
-              name: t("Zielsystem"),
-              Component: TargetForm,
-              ok: validator.children.target?.report?.ok,
-            },
-          ]}
-          tab={tab}
-          setTab={setTab}
-          sidebarWidth="w-36"
-        />
+        <ErrorMessageContext.Provider value={errorMessageHandler}>
+          <MessageBox
+            className="my-1"
+            messages={errorMessageHandler.messages}
+            messageTitle={t("Ein Fehler ist aufgetreten:")}
+            onDismiss={errorMessageHandler.clearMessages}
+          />
+          <SectionedForm
+            sections={[
+              {
+                tab: 0,
+                name: t("Beschreibung"),
+                Component: DescriptionForm,
+                ok: validator.children.description?.report?.ok,
+              },
+              {
+                tab: 1,
+                name: t("Quellsystem"),
+                Component: SourceForm,
+                ok: validator.children.source?.report?.ok,
+              },
+              {
+                tab: 2,
+                name: t("Zielsystem"),
+                Component: TargetForm,
+                ok: validator.children.target?.report?.ok,
+              },
+            ]}
+            tab={tab}
+            setTab={setTab}
+            sidebarWidth="w-36"
+          />
+        </ErrorMessageContext.Provider>
       </Modal.Body>
       <Modal.Footer>
         <div className="w-full flex flex-row justify-between">
@@ -147,7 +171,7 @@ export default function CUModal({ show, onClose }: CUModalProps) {
               <Button
                 disabled={sendingDraft}
                 onClick={() => {
-                  setError(null);
+                  errorMessageHandler.clearMessages();
                   setSendingDraft(true);
                   submitForm("draft");
                 }}
@@ -173,11 +197,11 @@ export default function CUModal({ show, onClose }: CUModalProps) {
                 onClick={() => {
                   const report = validator.validate(true) || {};
                   setCurrentValidationReport(report);
+                  errorMessageHandler.clearMessages();
                   if (!report.ok) {
-                    setError(ValidationMessages.GenericBadForm());
+                    applyReportToMessageHandler(report, errorMessageHandler);
                     return;
                   }
-                  setError(null);
                   setSendingConfig(true);
                   submitForm("ok");
                 }}

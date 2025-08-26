@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useContext, useState } from "react";
 import { Table, List, Button, Spinner } from "flowbite-react";
 import { FiEdit3, FiTrash2 } from "react-icons/fi";
 
@@ -9,6 +9,7 @@ import ConfirmModal from "../../components/ConfirmModal";
 import CUModal from "./CUModal/Modal";
 import { useFormStore } from "./CUModal/store";
 import { credentialsValue, host } from "../../App";
+import { ErrorMessageContext } from "./UsersScreen";
 
 export interface TableCellProps {
   user?: User;
@@ -106,6 +107,8 @@ export function ActionsCell({ user }: TableCellProps) {
   const [showConfirmDeleteModal, setShowConfirmDeleteModal] = useState(false);
   const initFromConfig = useFormStore((state) => state.initFromConfig);
 
+  const errorHandler = useContext(ErrorMessageContext);
+
   if (!user)
     return <Table.HeadCell className="w-1">{t("Aktion")}</Table.HeadCell>;
   return (
@@ -118,11 +121,12 @@ export function ActionsCell({ user }: TableCellProps) {
               size="xs"
               onClick={() => {
                 if (user === undefined) {
-                  alert(
-                    t(
+                  errorHandler?.pushMessage({
+                    id: "edit-job-config",
+                    text: t(
                       "Etwas ist schief gelaufen, die Nutzerkonfiguration fehlt."
-                    )
-                  );
+                    ),
+                  });
                   return;
                 }
                 initFromConfig(user);
@@ -161,18 +165,33 @@ export function ActionsCell({ user }: TableCellProps) {
                     credentials: credentialsValue,
                   }
                 )
-                  .then(async (response) => {
+                  .then((response) => {
                     setLoadingDelete(false);
                     if (!response.ok) {
-                      throw new Error(
-                        `Unexpected response (${await response.text()}).`
+                      response.text().then((text) =>
+                        errorHandler?.pushMessage({
+                          id: `delete-${user.id}`,
+                          text: `${t(
+                            `Löschen von Nutzerkonfiguration '${
+                              user.username ?? user.id
+                            }' nicht erfolgreich`
+                          )}: ${text}`,
+                        })
                       );
+                      return;
                     }
                     fetchList({ replace: true });
                   })
                   .catch((error) => {
                     setLoadingDelete(false);
-                    alert(error.message);
+                    errorHandler?.pushMessage({
+                      id: `delete-${user.id}`,
+                      text: `${t(
+                        `Fehler beim Löschen von Nutzerkonfiguration '${
+                          user.username ?? user.id
+                        }'`
+                      )}: ${error.message}`,
+                    });
                     fetchList({ replace: true });
                   });
               }}

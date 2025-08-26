@@ -1,13 +1,17 @@
-import { useEffect, useState } from "react";
+import { createContext, useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { Button, Alert, Spinner } from "flowbite-react";
+import { Button, Spinner } from "flowbite-react";
 
 import t from "../../../utils/translation";
-import { ValidationMessages } from "../../../utils/forms";
+import { applyReportToMessageHandler } from "../../../utils/forms";
 import useGlobalStore from "../../../store";
 import { credentialsValue, host, devMode } from "../../../App";
 import SectionedForm from "../../../components/SectionedForm";
 import Modal from "../../../components/Modal";
+import MessageBox, {
+  MessageHandler,
+  useMessageHandler,
+} from "../../../components/MessageBox";
 import WorkspaceForm from "./WorkspaceForm";
 import TemplateForm from "./TemplateForm";
 import { useFormStore } from "./store";
@@ -21,6 +25,10 @@ import { DataProcessingForm } from "./DataProcessingForm";
 import { SchedulingForm } from "./SchedulingForm";
 import { SummaryForm } from "./SummaryForm";
 import { ConfigStatus } from "../../../types";
+
+export const ErrorMessageContext = createContext<MessageHandler | undefined>(
+  undefined
+);
 
 interface CUModalProps {
   show: boolean;
@@ -51,17 +59,18 @@ export default function CUModal({
   const jobId = useFormStore((state) => state.id);
   const jobConfigStatus = useFormStore((state) => state.status);
 
-  const [error, setError] = useState<string | null>(null);
+  const errorMessageHandler = useMessageHandler([]);
   const [sendingDraft, setSendingDraft] = useState(false);
   const [sendingConfig, setSendingConfig] = useState(false);
 
   // reset form on hide
   useEffect(() => {
-    setError(null);
+    errorMessageHandler.clearMessages();
     setSendingDraft(false);
     setSendingConfig(false);
     setTab(tab0);
     if (!show) useFormStore.setState(useFormStore.getInitialState(), true);
+    // eslint-disable-next-line
   }, [show, tab0]);
 
   // perform validation if existing configuration has been loaded
@@ -92,118 +101,131 @@ export default function CUModal({
         .then((response) => {
           if (status === "draft") setSendingDraft(false);
           if (status === "ok") setSendingConfig(false);
-          if (response.ok) {
-            fetchJobConfigIds({});
-            onClose?.();
+          if (!response.ok) {
+            response.text().then((text) =>
+              errorMessageHandler.pushMessage({
+                id: "failed-submit-not-ok",
+                text: `${t(
+                  `Absenden der Konfiguration nicht erfolgreich`
+                )}: ${text}`,
+              })
+            );
             return;
           }
-          response
-            .text()
-            .then((text) => setError(t("Unerwartete Antwort") + ": " + text));
+          fetchJobConfigIds({ replace: true });
+          onClose?.();
         })
         .catch((error) => {
           if (status === "draft") setSendingDraft(false);
           if (status === "ok") setSendingConfig(false);
           console.error(error);
-          setError(t("Fehler beim Senden") + ": " + error?.toString());
+          errorMessageHandler.pushMessage({
+            id: "failed-submit-error",
+            text: `${t(`Fehler beim Absenden der Konfiguration`)}: ${
+              error.message
+            }`,
+          });
         });
     }
   }
-
   return (
     <Modal show={show} width="5xl" height="2xl" onClose={onClose} dismissible>
       <Modal.Header
         title={
-          !jobConfigStatus
+          !jobId
             ? t("Neuen Job anlegen")
             : jobConfigStatus === "draft"
             ? t("Job-Entwurf bearbeiten")
             : t("Job bearbeiten")
         }
+        className="h-32"
       >
-        <div className="max-w-full flex items-center justify-start gap-2">
-          <p
+        <div className="max-w-full mt-4 flex items-center justify-start gap-2">
+          <span
             className={`${
-              template ? "max-w-[50%]" : "max-w-full"
-            } w-fit text-sm dcm-clamp-text`}
+              template ? "max-w-[50%]" : "max-w-[100%]"
+            } text-sm dcm-clamp-text`}
           >
             {workspace ? workspace.name : null}
-          </p>
+          </span>
           {template ? (
             <>
-              <span className="px-2">-</span>
-              <p className="max-w-[50%] w-fit text-sm dcm-clamp-text">
+              <span className="text-sm">-</span>
+              <span className="max-w-[50%] text-sm dcm-clamp-text">
                 {template.name}
-              </p>
+              </span>
             </>
           ) : null}
         </div>
       </Modal.Header>
       <Modal.Body>
-        {error ? (
-          <Alert onDismiss={() => setError(null)} color="failure">
-            {error}
-          </Alert>
-        ) : null}
-        {tab === 0 ? (
-          <WorkspaceForm onSelect={(w) => setWorkspace(w, true)} />
-        ) : null}
-        {workspace && tab === 1 ? (
-          <TemplateForm
-            workspace={workspace}
-            onSelect={(t) => setTemplate(t, true)}
+        <ErrorMessageContext.Provider value={errorMessageHandler}>
+          <MessageBox
+            className="my-1"
+            messages={errorMessageHandler.messages}
+            messageTitle={t("Ein Fehler ist aufgetreten:")}
+            onDismiss={errorMessageHandler.clearMessages}
           />
-        ) : null}
-        {tab >= 2 ? (
-          <SectionedForm
-            sections={[
-              {
-                tab: 2,
-                name: t("Beschreibung"),
-                Component: DescriptionForm,
-                ok: validator.children?.description?.report?.ok,
-              },
-              {
-                tab: 3,
-                name: t("Datenauswahl"),
-                Component: (() => {
-                  switch (template?.type) {
-                    case "oai":
-                      return OaiDataSelectionForm;
-                    case "hotfolder":
-                      return HotfolderDataSelectionForm;
-                    default:
-                      return EmptyDataSelectionForm;
-                  }
-                })(),
-                ok: template?.type
-                  ? validator.children?.dataSelection?.report?.ok
-                  : undefined,
-              },
-              {
-                tab: 4,
-                name: t("Datenaufbereitung"),
-                Component: DataProcessingForm,
-                ok: validator.children.dataProcessing?.report?.ok,
-              },
-              {
-                tab: 5,
-                name: t("Zeitplan"),
-                Component: SchedulingForm,
-                ok: validator.children?.scheduling?.report?.ok,
-              },
-              {
-                tab: 6,
-                name: t("Zusammenfassung"),
-                Component: SummaryForm,
-                showIcon: false,
-              },
-            ]}
-            tab={tab}
-            setTab={setTab}
-            sidebarWidth="w-48"
-          />
-        ) : null}
+          {tab === 0 ? (
+            <WorkspaceForm onSelect={(w) => setWorkspace(w, true)} />
+          ) : null}
+          {workspace && tab === 1 ? (
+            <TemplateForm
+              workspace={workspace}
+              onSelect={(t) => setTemplate(t, true)}
+            />
+          ) : null}
+          {tab >= 2 ? (
+            <SectionedForm
+              sections={[
+                {
+                  tab: 2,
+                  name: t("Beschreibung"),
+                  Component: DescriptionForm,
+                  ok: validator.children?.description?.report?.ok,
+                },
+                {
+                  tab: 3,
+                  name: t("Datenauswahl"),
+                  Component: (() => {
+                    switch (template?.type) {
+                      case "oai":
+                        return OaiDataSelectionForm;
+                      case "hotfolder":
+                        return HotfolderDataSelectionForm;
+                      default:
+                        return EmptyDataSelectionForm;
+                    }
+                  })(),
+                  ok: template?.type
+                    ? validator.children?.dataSelection?.report?.ok
+                    : undefined,
+                },
+                {
+                  tab: 4,
+                  name: t("Datenaufbereitung"),
+                  Component: DataProcessingForm,
+                  ok: validator.children.dataProcessing?.report?.ok,
+                },
+                {
+                  tab: 5,
+                  name: t("Zeitplan"),
+                  Component: SchedulingForm,
+                  ok: validator.children?.scheduling?.report?.ok,
+                },
+                {
+                  tab: 6,
+                  name: t("Zusammenfassung"),
+                  Component: SummaryForm,
+                  showIcon: false,
+                },
+              ]}
+              tab={tab}
+              setTab={setTab}
+              sidebarWidth="w-48"
+            />
+          ) : null}
+        </ErrorMessageContext.Provider>
       </Modal.Body>
       <Modal.Footer>
         <div className="w-full flex flex-row justify-between">
@@ -222,7 +244,7 @@ export default function CUModal({
                     );
                     return;
                   }
-                  setError(null);
+                  errorMessageHandler.clearMessages();
                   setSendingDraft(true);
                   submitForm("draft");
                 }}
@@ -269,11 +291,11 @@ export default function CUModal({
                   }
                   const report = validator.validate(true) || {};
                   setCurrentValidationReport(report);
+                  errorMessageHandler.clearMessages();
                   if (!report.ok) {
-                    setError(ValidationMessages.GenericBadForm());
+                    applyReportToMessageHandler(report, errorMessageHandler);
                     return;
                   }
-                  setError(null);
                   setSendingConfig(true);
                   submitForm("ok");
                 }}

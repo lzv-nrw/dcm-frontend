@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { Label, TextInput, Alert, Button, Spinner } from "flowbite-react";
+import { Label, TextInput, Button, Spinner } from "flowbite-react";
 
 import t from "../../utils/translation";
 import useGlobalStore from "../../store";
 import { textInputLimit } from "../../utils/forms";
+import MessageBox, { useMessageHandler } from "../../components/MessageBox";
 import { host, credentialsValue } from "../../App";
 import Modal from "../../components/Modal";
 
@@ -17,8 +18,9 @@ export default function NewWorkspaceModal({
   onClose,
 }: NewWorkspaceModalProps) {
   const nameRef = useRef<HTMLInputElement>(null);
+  const errorMessageHandler = useMessageHandler([]);
+
   const [nameOk, setNameOk] = useState<boolean | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState<boolean>(true);
   const fetchWorkspaceIds = useGlobalStore(
     (state) => state.workspace.fetchList
@@ -27,9 +29,10 @@ export default function NewWorkspaceModal({
   // reset form on show/hide
   useEffect(() => {
     setNameOk(null);
-    setError(null);
+    errorMessageHandler.clearMessages();
     setSending(false);
-  }, [show, setNameOk, setError, setSending]);
+    // eslint-disable-next-line
+  }, [show, setNameOk, setSending]);
 
   /**
    * Returns a Flowbite input color based on status.
@@ -46,15 +49,15 @@ export default function NewWorkspaceModal({
   }
 
   return (
-    <Modal
-      show={show}
-      width="5xl"
-      height="xs"
-      onClose={onClose}
-      dismissible
-    >
+    <Modal show={show} width="5xl" height="md" onClose={onClose} dismissible>
       <Modal.Header title={t("Arbeitsbereich erstellen")} />
       <Modal.Body>
+        <MessageBox
+          className="my-1"
+          messages={errorMessageHandler.messages}
+          messageTitle={t("Ein Fehler ist aufgetreten:")}
+          onDismiss={errorMessageHandler.clearMessages}
+        />
         <div className="space-y-2 py-4">
           <div className="space-y-2">
             <Label htmlFor="name" value={t("Titel*")} />
@@ -71,7 +74,6 @@ export default function NewWorkspaceModal({
               }}
             />
           </div>
-          {error ? <Alert color="failure">{error}</Alert> : null}
         </div>
       </Modal.Body>
       <Modal.Footer>
@@ -80,19 +82,25 @@ export default function NewWorkspaceModal({
           <Button
             onClick={() => {
               let valid = true;
+              errorMessageHandler.clearMessages();
               [{ ok: nameOk, setOk: setNameOk }].forEach(({ ok, setOk }) => {
                 if (!ok) {
                   setOk?.(false);
                   valid = false;
-                  setError(
-                    t("Bitte füllen Sie alle erforderlichen Felder aus.")
-                  );
+                  errorMessageHandler.pushMessage({
+                    id: "bad-form-generic",
+                    text: t("Bitte füllen Sie alle erforderlichen Felder aus."),
+                  });
                 }
               });
               if (!valid) return;
-
-              setError(null);
               setSending(true);
+              errorMessageHandler.removeMessage(
+                "submit-workspace-config-bad-response"
+              );
+              errorMessageHandler.removeMessage(
+                "submit-workspace-config-error"
+              );
               fetch(host + "/api/admin/workspace", {
                 method: "POST",
                 headers: {
@@ -105,20 +113,29 @@ export default function NewWorkspaceModal({
               })
                 .then((response) => {
                   setSending(false);
-                  if (response.ok) {
-                    fetchWorkspaceIds({});
-                    onClose?.();
+                  if (!response.ok) {
+                    response.text().then((text) =>
+                      errorMessageHandler?.pushMessage({
+                        id: `submit-workspace-config-bad-response`,
+                        text: `${t(
+                          "Absenden der Konfiguration nicht erfolgreich"
+                        )}: ${text}`,
+                      })
+                    );
                     return;
                   }
-                  return response.text();
+                  fetchWorkspaceIds({});
+                  onClose?.();
                 })
-                .then((error_text) =>
-                  setError(t("Unerwartete Antwort") + ": " + error_text)
-                )
                 .catch((error) => {
                   setSending(false);
                   console.error(error);
-                  setError(t("Fehler beim Senden") + ": " + error?.toString());
+                  errorMessageHandler?.pushMessage({
+                    id: `submit-workspace-config-error`,
+                    text: `${t("Fehler beim Absenden der Konfiguration")}: ${
+                      error.message
+                    }`,
+                  });
                 });
             }}
           >

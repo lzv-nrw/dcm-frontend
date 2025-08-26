@@ -34,12 +34,9 @@ export const devMode = document.cookie
 // return a div-tag for a SECRET_KEY-Banner
 function SecretKeyBanner() {
   return (
-    <div
-      role="alert"
-      className="sticky top-0 z-50 flex justify-between w-full p-1 bg-red-500"
-    >
-      <div className="flex items-center mx-auto">
-        <p className="flex items-center text-sm font-bold text-slate-50">
+    <div role="alert" className="w-full p-1 bg-red-500">
+      <div className="mx-auto">
+        <p className="text-center text-sm font-bold text-slate-50">
           {t(
             "Warnung! Der SECRET_KEY ist nicht konfiguriert, die Sitzung ist eventuell unsicher. Bitte wenden Sie sich an den Systemadministrator."
           )}
@@ -119,73 +116,80 @@ export default function App() {
   }, [setSecretKeyOk]);
 
   return (
-    <div className="w-screen h-screen min-h-screen">
-      {secretKeyOk === false && <SecretKeyBanner />}
-      <header className="flex justify-center items-center relative h-24 w-full">
-        <div
-          className="absolute left-7 h-10 w-36 hover:cursor-pointer"
-          onClick={() => navigate("/")}
-        >
-          {logoAvailable === null || logoAvailable === true ? (
-            <img
-              src={host + "/logo"}
-              className="max-w-full max-h-full"
-              onLoad={() => setLogoAvailable(true)}
-              onError={() => setLogoAvailable(false)}
-              alt="logo"
-            />
-          ) : (
-            <div className="w-full h-full border-0 rounded-3xl bg-gray-300" />
+    <>
+      <header className="sticky top-0 z-50 w-[100%]">
+        {secretKeyOk === false && <SecretKeyBanner />}
+        <div className="w-full relative flex justify-center items-center bg-white">
+          <div
+            className="absolute left-7 h-10 w-36 hover:cursor-pointer"
+            onClick={() => navigate("/")}
+          >
+            {logoAvailable === null || logoAvailable === true ? (
+              <img
+                src={host + "/logo"}
+                className="max-w-full max-h-full"
+                onLoad={() => setLogoAvailable(true)}
+                onError={() => setLogoAvailable(false)}
+                alt="logo"
+              />
+            ) : (
+              <div className="w-full h-full border-0 rounded-3xl bg-gray-300" />
+            )}
+          </div>
+          <h1 className="flex justify-center py-7 font-bold text-2xl">
+            Digital Curation Manager
+          </h1>
+          {devMode && (
+            <span className="text-xs mt-5 w-0 text-nowrap">dev-Modus</span>
           )}
         </div>
-        <h1 className="flex justify-center py-7 font-bold text-2xl">
-          Digital Curation Manager
-        </h1>
-        {devMode && (
-          <span className="text-xs mt-5 w-0 text-nowrap">dev-Modus</span>
-        )}
+        {loggedIn === true && <CustomNavbar />}
       </header>
-      {loggedIn === true && <CustomNavbar />}
-      {initialized && loggedIn === false && location.pathname !== "/" ? (
-        <Navigate to="/login" />
-      ) : null}
-      <section className="w-full h-[calc(100vh-150px)]">
-        {initialized ? (
-          <Routes>
-            <Route
-              path="/"
-              element={loggedIn ? <HomeScreen /> : <Navigate to="/login" />}
-            />
-            <Route
-              path="/dashboard"
-              element={<DashboardScreen acceptedWidgets={["demo"]} />}
-            />
-            <Route
-              path="/login"
-              element={!loggedIn ? <LoginScreen /> : <Navigate to="/" />}
-            />
-            {acl ? (
-              <>
-                <Route path="/jobs" element={<JobsScreen useACL />} />
-                <Route
-                  path="/job-details"
-                  element={<JobDetailsScreen useACL />}
-                />
-                <Route path="/users" element={<UsersScreen useACL />} />
-                <Route path="/templates" element={<TemplatesScreen useACL />} />
-                <Route
-                  path="/workspaces"
-                  element={<WorkspacesScreen useACL />}
-                />
-              </>
-            ) : null}
-          </Routes>
-        ) : (
-          <div className="flex h-full w-full justify-center items-center">
-            <Spinner size="xl" />
-          </div>
-        )}
-      </section>
-    </div>
+      <div className="w-[100%] h-full">
+        {initialized && loggedIn === false && location.pathname !== "/" ? (
+          <Navigate to="/login" />
+        ) : null}
+        <section className="w-full">
+          {initialized ? (
+            <Routes>
+              <Route
+                path="/"
+                element={loggedIn ? <HomeScreen /> : <Navigate to="/login" />}
+              />
+              <Route
+                path="/dashboard"
+                element={<DashboardScreen acceptedWidgets={["demo"]} />}
+              />
+              <Route
+                path="/login"
+                element={!loggedIn ? <LoginScreen /> : <Navigate to="/" />}
+              />
+              {acl ? (
+                <>
+                  <Route path="/jobs" element={<JobsScreen useACL />} />
+                  <Route
+                    path="/job-details"
+                    element={<JobDetailsScreen useACL />}
+                  />
+                  <Route path="/users" element={<UsersScreen useACL />} />
+                  <Route
+                    path="/templates"
+                    element={<TemplatesScreen useACL />}
+                  />
+                  <Route
+                    path="/workspaces"
+                    element={<WorkspacesScreen useACL />}
+                  />
+                </>
+              ) : null}
+            </Routes>
+          ) : (
+            <div className="flex h-full w-full justify-center items-center">
+              <Spinner size="xl" />
+            </div>
+          )}
+        </section>
+      </div>
+    </>
   );
 }

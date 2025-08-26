@@ -14,15 +14,15 @@ import {
   validateEmail,
   validateNonEmptyText,
 } from "./DataForm";
-import { Rights, RightsFormValidator } from "./RightsForm";
+import { Groups, GroupsFormValidator } from "./GroupsForm";
 
 export interface FormData {
   id?: string;
   data?: Data;
-  rights?: Rights;
+  groups?: Groups;
 }
 
-type FormChildren = "data" | "rights";
+type FormChildren = "data" | "groups";
 type FormValidator = Validator<FormChildren>;
 
 export interface FormStore extends FormData {
@@ -32,7 +32,7 @@ export interface FormStore extends FormData {
   ) => void;
   setId: (id?: string) => void;
   setData: (data: Data, replace?: boolean) => void;
-  setRights: (rights: Rights, replace?: boolean) => void;
+  setGroups: (groups: Groups, replace?: boolean) => void;
   initFromConfig: (user: User) => void;
   formatToConfig: () => Omit<User, "id"> & { id?: string }; // this changes the User.id (occurring in submissions) to optional
 }
@@ -72,15 +72,15 @@ export const useFormStore = create<FormStore>()((set, get) => ({
           },
         },
       } as DataFormValidator,
-      rights: {
+      groups: {
         validate: createValidateWithChildren<DataFormChildren>(
-          () => get().validator.children?.rights,
+          () => get().validator.children?.groups,
           (strict) => {
             if (strict) return { ok: true };
             return {};
           }
         ),
-      } as RightsFormValidator,
+      } as GroupsFormValidator,
     },
   } as FormValidator,
   setCurrentValidationReport: (report) =>
@@ -90,8 +90,8 @@ export const useFormStore = create<FormStore>()((set, get) => ({
   setId: (id) => set({ id }),
   setData: (data, replace = false) =>
     replace ? set({ data }) : set({ data: { ...get().data, ...data } }),
-  setRights: (rights, replace = false) =>
-    replace ? set({ rights }) : set({ rights: { ...get().rights, ...rights } }),
+  setGroups: (groups, replace = false) =>
+    replace ? set({ groups }) : set({ groups: { ...get().groups, ...groups } }),
   initFromConfig: (user: User) => {
     const store = get();
     store.setId(user.id);
@@ -104,7 +104,7 @@ export const useFormStore = create<FormStore>()((set, get) => ({
       },
       true
     );
-    store.setRights(
+    store.setGroups(
       {
         memberships: user.groups,
       },
@@ -119,7 +119,7 @@ export const useFormStore = create<FormStore>()((set, get) => ({
       firstname: store.data?.firstname,
       lastname: store.data?.lastname,
       email: store.data?.email,
-      groups: store.rights?.memberships,
+      groups: store.groups?.memberships,
     };
   },
 }));

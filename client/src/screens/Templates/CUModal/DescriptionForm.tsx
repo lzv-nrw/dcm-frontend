@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { Label, Select, TextInput, Textarea } from "flowbite-react";
-import { FiLock } from "react-icons/fi";
 
 import t from "../../../utils/translation";
 import { Template } from "../../../types";
@@ -109,14 +108,16 @@ export default function DescriptionForm({
   }, [description?.workspaceId]);
   // * form section
   useEffect(() => {
-    if (!formVisited || active) return;
+    if (!formVisited) return;
+    if (validator.children?.description?.report?.ok === undefined && active)
+      return;
     setCurrentValidationReport({
       children: {
         description: validator.children?.description?.validate(true),
       },
     });
     // eslint-disable-next-line
-  }, [active]);
+  }, [active, description?.name, description?.workspaceId]);
 
   return (
     <>
@@ -156,13 +157,9 @@ export default function DescriptionForm({
           />
         </div>
         <div className="space-y-2">
-          <div className="flex flex-row space-x-2 items-center">
-            <Label htmlFor="workspaceId" value={t("Arbeitsbereich*")} />
-            {(linkedJobs ?? 0) > 0 && <FiLock />}
-          </div>
+          <Label htmlFor="workspaceId" value={t("Arbeitsbereich*")} />
           <Select
             id="workspaceId"
-            disabled={(linkedJobs ?? 0) > 0}
             value={description?.workspaceId ?? ""}
             color={getTextInputColor({
               ok:
@@ -186,6 +183,13 @@ export default function DescriptionForm({
                 </option>
               ))}
           </Select>
+          {(linkedJobs ?? 0) > 0 && (
+            <span className="text-xs">
+              {t(
+                "Eine Änderung des Arbeitsbereichs kann dazu führen, dass Nutzer ihren Zugriff verlieren."
+              )}
+            </span>
+          )}
         </div>
       </div>
     </>

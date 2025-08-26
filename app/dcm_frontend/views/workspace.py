@@ -146,3 +146,39 @@ class WorkspaceView(services.View):
                 mimetype="text/plain",
                 status=response.status_code,
             )
+
+        @bp.route("/workspace", methods=["DELETE"])
+        @login_required
+        @requires_permission(*self.config.ACL.DELETE_WORKSPACE)
+        @generate_workspaces(*self.config.ACL.DELETE_WORKSPACE)
+        def delete_workspace(workspaces: Optional[Iterable[str]]):
+            # enforce workspace-rules
+            if "id" not in request.args:
+                return Response(
+                    "Missing 'id'", mimetype="text/plain", status=400
+                )
+            if (
+                workspaces is not None
+                and request.args.get("id") not in workspaces
+            ):
+                return Response("Forbidden", mimetype="text/plain", status=403)
+
+            # run query
+            response = call_backend(
+                endpoint=(
+                    self.backend_config_api.delete_workspace_with_http_info
+                ),
+                kwargs=request.args,
+                request_timeout=self.config.BACKEND_TIMEOUT,
+            )
+            if response.status_code == 200:
+                return Response(
+                    "OK",
+                    mimetype="text/plain",
+                    status=200,
+                )
+            return Response(
+                response.fail_reason,
+                mimetype="text/plain",
+                status=response.status_code,
+            )

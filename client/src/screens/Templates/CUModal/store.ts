@@ -253,6 +253,10 @@ export const useFormStore = create<FormStore>()((set, get) => ({
       default:
       // nothing to do
     }
+    // FIXME: this is only a placeholder to allow editing a template with
+    // linked jobs (where the otherwise undefined target-select is locked
+    // but required for submission)
+    store.setTarget({ targetId: "rosettaDummy" }, true);
   },
   formatToConfig: (status) => {
     const store = get();

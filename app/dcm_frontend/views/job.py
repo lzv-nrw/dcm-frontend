@@ -79,6 +79,77 @@ class JobView(services.View):
                 )
             return jsonify(response.data.to_dict()), 200
 
+        @bp.route("/job", methods=["DELETE"])
+        @login_required
+        @requires_permission(*self.config.ACL.DELETE_JOB)
+        @generate_workspaces(*self.config.ACL.DELETE_JOB)
+        def abort_job(workspaces: Optional[Iterable[str]]):
+            # enforce workspace-rules
+            if workspaces is not None:
+                # get job info
+                response_job_info = call_backend(
+                    endpoint=self.backend_job_api.get_job_info_with_http_info,
+                    args=(request.json.get("token"),),
+                    request_timeout=self.config.BACKEND_TIMEOUT,
+                )
+                if response_job_info.status_code != 200:
+                    return Response(
+                        response_job_info.fail_reason,
+                        mimetype="text/plain",
+                        status=response_job_info.status_code,
+                    )
+                if response_job_info.data.status not in ["queued", "running"]:
+                    return Response(
+                        f"Job '{request.json.get('token')}' is not running.",
+                        mimetype="text/plain",
+                        status=400,
+                    )
+                # get full config
+                response_job_config = call_backend(
+                    endpoint=(
+                        self.backend_job_api.get_job_config_with_http_info
+                    ),
+                    args=(response_job_info.data.job_config_id,),
+                    request_timeout=self.config.BACKEND_TIMEOUT,
+                )
+                if (
+                    response_job_config.status_code == 200
+                    and response_job_config.data.workspace_id not in workspaces
+                ):
+                    return Response(
+                        "Forbidden", mimetype="text/plain", status=403
+                    )
+                if response_job_config.status_code != 200:
+                    return Response(
+                        response_job_config.fail_reason,
+                        mimetype="text/plain",
+                        status=response_job_config.status_code,
+                    )
+
+            # attempt to abort the given job
+            response = call_backend(
+                endpoint=(self.backend_job_api.abort_with_http_info),
+                args=(
+                    request.json.get("token"),
+                    {
+                        "reason": "abort by user",
+                        "origin": "dcm-frontend",
+                    },
+                ),
+                request_timeout=self.config.BACKEND_TIMEOUT,
+            )
+            if response.status_code >= 400:
+                return Response(
+                    response.fail_reason,
+                    mimetype="text/plain",
+                    status=response.status_code,
+                )
+            return Response(
+                "OK",
+                mimetype="text/plain",
+                status=200,
+            )
+
         @bp.route("/job-test", methods=["POST"])
         @login_required
         @requires_permission(*self.config.ACL.CREATE_JOB)

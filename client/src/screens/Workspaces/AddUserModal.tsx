@@ -5,7 +5,6 @@ import {
   ListGroupItem,
   Select,
   Spinner,
-  Alert,
 } from "flowbite-react";
 
 import t from "../../utils/translation";
@@ -14,6 +13,7 @@ import useGlobalStore from "../../store";
 import { host, credentialsValue } from "../../App";
 import UserDisplay from "../../components/UserDisplay";
 import Modal from "../../components/Modal";
+import MessageBox, { useMessageHandler } from "../../components/MessageBox";
 import { WorkspaceContext } from "./WorkspaceDisplay";
 
 interface AddUserModalProps {
@@ -29,7 +29,9 @@ export default function AddUserModal({
 }: AddUserModalProps) {
   const workspace = useContext(WorkspaceContext);
   const [userSelection, setUserSelection] = useState<User | null>(null);
-  const [error, setError] = useState<string | null>(null);
+
+  const errorMessageHandler = useMessageHandler([]);
+
   const [sending, setSending] = useState<boolean>(true);
   const groups = useGlobalStore((state) => state.permission.groups);
   const fetchWorkspace = useGlobalStore(
@@ -39,14 +41,21 @@ export default function AddUserModal({
   // reset form on show/hide
   useEffect(() => {
     setUserSelection(null);
-    setError(null);
+    errorMessageHandler.clearMessages();
     setSending(false);
+    // eslint-disable-next-line
   }, [show, users, setSending]);
 
   return (
     <Modal show={show} width="2xl" height="md" onClose={onClose} dismissible>
       <Modal.Header title={t("Nutzer hinzufügen")} />
       <Modal.Body>
+        <MessageBox
+          className="my-1"
+          messages={errorMessageHandler.messages}
+          messageTitle={t("Ein Fehler ist aufgetreten:")}
+          onDismiss={errorMessageHandler.clearMessages}
+        />
         <div className="space-y-2">
           <div className="overflow-y-auto max-h-96 p-2">
             <ListGroup>
@@ -84,11 +93,6 @@ export default function AddUserModal({
                 ))}
             </ListGroup>
           </div>
-          {error ? (
-            <Alert color="failure" onDismiss={() => setError(null)}>
-              {error}
-            </Alert>
-          ) : null}
         </div>
       </Modal.Body>
       <Modal.Footer>
@@ -99,6 +103,10 @@ export default function AddUserModal({
             onClick={() => {
               if (userSelection === null || workspace === null) return;
               setSending(true);
+              errorMessageHandler?.removeMessage(
+                "add-user-to-workspace-bad-response"
+              );
+              errorMessageHandler?.removeMessage("add-user-to-workspace-error");
               fetch(host + "/api/admin/user", {
                 method: "PUT",
                 headers: {
@@ -122,17 +130,30 @@ export default function AddUserModal({
                   ],
                 }),
               })
-                .then(async (response) => {
+                .then((response) => {
                   setSending(false);
+                  if (!response.ok) {
+                    response.text().then((text) =>
+                      errorMessageHandler?.pushMessage({
+                        id: `add-user-to-workspace-bad-response`,
+                        text: `${t(
+                          "Hinzufügen eines Nutzers fehlgeschlagen"
+                        )}: ${text}`,
+                      })
+                    );
+                    return;
+                  }
                   fetchWorkspace({ workspaceId: workspace.id });
-                  if (response.ok) {
-                    onClose?.();
-                    setError(null);
-                  } else throw new Error(await response.text());
+                  onClose?.();
                 })
                 .catch((error) => {
-                  setError(error.message);
                   console.error(error);
+                  errorMessageHandler?.pushMessage({
+                    id: `add-user-to-workspace-error`,
+                    text: `${t("Hinzufügen eines Nutzers fehlgeschlagen")}: ${
+                      error.message
+                    }`,
+                  });
                 });
             }}
           >

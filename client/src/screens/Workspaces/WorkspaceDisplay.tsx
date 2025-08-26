@@ -1,4 +1,4 @@
-import { useEffect, useState, createContext } from "react";
+import { useEffect, useState, createContext, useContext } from "react";
 import { Card, Popover, Select, Spinner } from "flowbite-react";
 import { FiMoreHorizontal, FiTrash2 } from "react-icons/fi";
 
@@ -7,8 +7,11 @@ import { Template, User, Workspace } from "../../types";
 import useGlobalStore from "../../store";
 import { host, credentialsValue } from "../../App";
 import UserDisplay from "../../components/UserDisplay";
+import ContextMenu from "../../components/ContextMenu";
+import ConfirmModal from "../../components/ConfirmModal";
 import TemplateDisplay from "./TemplateDisplay";
 import AddUserModal from "./AddUserModal";
+import { ErrorMessageContext } from "./WorkspacesScreen";
 
 export const WorkspaceContext = createContext<Workspace | null>(null);
 
@@ -21,7 +24,11 @@ export default function WorkspaceDisplay({
   workspace,
   useACL = false,
 }: WorkspaceDisplayProps) {
+  const errorHandler = useContext(ErrorMessageContext);
+
   const [loading, setLoading] = useState(false);
+  const [loadingDelete, setLoadingDelete] = useState(false);
+  const [showConfirmDeleteModal, setShowConfirmDeleteModal] = useState(false);
   const [openAddUserModal, setOpenAddUserModal] = useState(false);
   const [openAddTemplate, setOpenAddTemplate] = useState(false);
   const groups = useGlobalStore((state) => state.permission.groups);
@@ -39,6 +46,7 @@ export default function WorkspaceDisplay({
   const [unassignedUsers, setUnassignedUsers] = useState<User[]>([]);
 
   const acl = useGlobalStore((state) => state.session.acl);
+  const fetchList = useGlobalStore((state) => state.workspace.fetchList);
 
   // find templates that are not yet assigned to a workspace
   // and filter out template-drafts
@@ -95,13 +103,34 @@ export default function WorkspaceDisplay({
       credentials: credentialsValue,
       body: JSON.stringify(template),
     })
-      .then(() => {
+      .then((response) => {
         setLoading(false);
+        if (!response.ok) {
+          response.text().then((text) =>
+            errorHandler?.pushMessage({
+              id: `put-template-${template.id}`,
+              text: `${t(
+                `Aktualisierung des Arbeitsbereichs '${
+                  workspace.name ?? workspace.id
+                }' nicht erfolgreich`
+              )}: ${text}`,
+            })
+          );
+          return;
+        }
         fetchWorkspace({ workspaceId: workspace.id });
         if (template.id) fetchTemplate({ templateId: template.id });
       })
       .catch((error) => {
-        console.error(error);
+        setLoading(false);
+        errorHandler?.pushMessage({
+          id: `put-template-${template.id}`,
+          text: `${t(
+            `Fehler bei der Aktualisierung des Arbeitsbereichs '${
+              workspace.name ?? workspace.id
+            }'`
+          )}: ${error.message}`,
+        });
       });
   }
 
@@ -121,13 +150,34 @@ export default function WorkspaceDisplay({
       credentials: credentialsValue,
       body: JSON.stringify(user),
     })
-      .then(() => {
+      .then((response) => {
         setLoading(false);
+        if (!response.ok) {
+          response.text().then((text) =>
+            errorHandler?.pushMessage({
+              id: `put-user-${user.id}`,
+              text: `${t(
+                `Aktualisierung des Arbeitsbereichs '${
+                  workspace.name ?? workspace.id
+                }' nicht erfolgreich`
+              )}: ${text}`,
+            })
+          );
+          return;
+        }
         fetchWorkspace({ workspaceId: workspace.id });
         fetchUser({ userId: user.id });
       })
       .catch((error) => {
-        console.error(error);
+        setLoading(false);
+        errorHandler?.pushMessage({
+          id: `put-user-${user.id}`,
+          text: `${t(
+            `Fehler bei der Aktualisierung des Arbeitsbereichs '${
+              workspace.name ?? workspace.id
+            }'`
+          )}: ${error.message}`,
+        });
       });
   }
 
@@ -145,9 +195,77 @@ export default function WorkspaceDisplay({
               {workspace.name}
               {loading && <Spinner className="mx-2" size="xs" />}
             </h3>
-            <div className="flex items-center justify-center h-8 w-8 rounded-full border border-gray-200 hover:cursor-pointer hover:bg-gray-100">
-              <FiMoreHorizontal size="18" />
-            </div>
+            <ContextMenu
+              items={[
+                { children: t("Umbenennen"), onClick: () => alert("tbd") },
+                {
+                  children: (
+                    <div className="flex flex-row space-x-2 items-center">
+                      {loadingDelete && <Spinner size="sm" />}
+                      <span>{t("Löschen")}</span>
+                    </div>
+                  ),
+                  onClick: loadingDelete
+                    ? undefined
+                    : () => {
+                        setLoadingDelete(true);
+                        setShowConfirmDeleteModal(true);
+                      },
+                },
+              ]}
+            >
+              <div className="flex items-center justify-center h-8 w-8 rounded-full border border-gray-200 hover:cursor-pointer hover:bg-gray-100">
+                <FiMoreHorizontal size="18" />
+              </div>
+            </ContextMenu>
+            <ConfirmModal
+              show={showConfirmDeleteModal}
+              title={t("Arbeitsbereich löschen")}
+              confirmText={t("Arbeitsbereich löschen")}
+              onConfirm={() => {
+                setShowConfirmDeleteModal(false);
+                fetch(
+                  host +
+                    "/api/admin/workspace?" +
+                    new URLSearchParams({
+                      id: workspace.id ?? "",
+                    }).toString(),
+                  {
+                    method: "DELETE",
+                    credentials: credentialsValue,
+                  }
+                )
+                  .then(async (response) => {
+                    setLoadingDelete(false);
+                    if (!response.ok) {
+                      throw new Error(
+                        `Unexpected response (${await response.text()}).`
+                      );
+                    }
+                    fetchList({ replace: true });
+                  })
+                  .catch((error) => {
+                    setLoadingDelete(false);
+                    alert(error.message);
+                    fetchList({ replace: true });
+                  });
+              }}
+              onCancel={() => {
+                setShowConfirmDeleteModal(false);
+                setLoadingDelete(false);
+              }}
+            >
+              <span>
+                {t(
+                  `Wollen Sie den Arbeitsbereich '${workspace.name}' unwiderruflich löschen?`
+                )}
+                {((workspace.templates ?? []).length > 0 ||
+                  (workspace.users ?? []).length > 0) &&
+                  t(
+                    " Zugewiesene Nutzer verlieren dadurch den Zugriff auf Templates und damit erstellte Jobs in diesem Arbeitsbereich."
+                  )}
+              </span>
+            </ConfirmModal>
           </div>
           <h5 className="font-semibold">{t("Templates")}</h5>
           <div className="p-2 my-2 grid grid-cols-2 gap-4 overflow-y-auto max-h-64">
@@ -250,10 +368,12 @@ export default function WorkspaceDisplay({
                         title:
                           groups?.find((g) => g.id === group.id)?.name ?? "?",
                       }))}
-                      icon={<div
+                    icon={
+                      <div
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (loading || !workspace.users?.includes(user)) return;
+                          if (loading || !workspace.users?.includes(user))
+                            return;
                           setLoading(true);
                           putUser({
                             ...users[user],
@@ -265,7 +385,8 @@ export default function WorkspaceDisplay({
                         className="right-0 top-0 absolute p-1 rounded-full text-gray-500 hover:text-black hover:bg-gray-200 hover:cursor-pointer"
                       >
                         <FiTrash2 size="20" />
-                      </div>}
+                      </div>
+                    }
                   />
                   <Select
                     className="p-2 w-64"

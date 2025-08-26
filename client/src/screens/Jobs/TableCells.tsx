@@ -1,5 +1,4 @@
-import { useEffect, useState } from "react";
-import { useShallow } from "zustand/react/shallow";
+import { useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { Table, Button, Spinner } from "flowbite-react";
 import { FiPlay, FiEye, FiEdit3, FiTrash2 } from "react-icons/fi";
@@ -9,11 +8,12 @@ import { formatJobConfigStatus } from "../../utils/util";
 import { reformatDatetime } from "../../utils/dateTime";
 import { JobConfig } from "../../types";
 import useGlobalStore from "../../store";
+import ConfirmModal from "../../components/ConfirmModal";
 import { host, credentialsValue, devMode } from "../../App";
 import DebugJobModal from "./DebugJobModal";
 import CUModal from "./CUModal/Modal";
 import { useFormStore } from "./CUModal/store";
-import ConfirmModal from "../../components/ConfirmModal";
+import { ErrorMessageContext } from "./JobsScreen";
 
 export interface TableCellProps {
   config?: JobConfig;
@@ -51,29 +51,14 @@ export function WorkspaceCell({ config }: TableCellProps) {
 }
 
 export function LatestExecCell({ config }: TableCellProps) {
-  const [loading, setLoading] = useState(false);
-  const [jobInfos, fetchJobInfo] = useGlobalStore(
-    useShallow((state) => [state.job.jobInfos, state.job.fetchJobInfo])
-  );
-
-  // load latestExec-info
-  useEffect(() => {
-    if (!config?.latestExec) return;
-    if (!jobInfos[config.latestExec]) {
-      setLoading(true);
-      fetchJobInfo({
-        token: config?.latestExec,
-        onSuccess: () => setLoading(false),
-      });
-    }
-    // eslint-disable-next-line
-  }, [config?.latestExec, fetchJobInfo]);
+  const jobInfos = useGlobalStore((state) => state.job.jobInfos);
 
   if (!config) return <Table.HeadCell>{t("Letzter Lauf")}</Table.HeadCell>;
 
   return (
     <Table.Cell>
-      {loading ? (
+      {config.latestExec !== undefined &&
+      jobInfos[config.latestExec] === undefined ? (
         <Spinner size="xs" />
       ) : (
         reformatDatetime(jobInfos[config.latestExec ?? ""]?.datetimeStarted, {
@@ -124,14 +109,21 @@ export function ArchivedRecordsCell({ config }: TableCellProps) {
     (state) => state.job.fetchRecordsByJobConfig
   );
 
+  const errorHandler = useContext(ErrorMessageContext);
+
   useEffect(() => {
     if (!config) return;
     fetchRecordsByJobConfig({
       jobConfigId: config.id,
       success: "true",
       onSuccess: (records) => setRecords(records.length),
-      onFail: (error) => alert(error),
+      onFail: (error) =>
+        errorHandler?.pushMessage({
+          id: `fetch-records-${config.id}`,
+          text: error,
+        }),
     });
+    // eslint-disable-next-line
   }, [config, fetchRecordsByJobConfig]);
 
   if (!config) return <Table.HeadCell>{t("Archivierte IEs")}</Table.HeadCell>;
@@ -140,29 +132,26 @@ export function ArchivedRecordsCell({ config }: TableCellProps) {
 
 export function IssuesCell({ config }: TableCellProps) {
   const [issues, setIssues] = useState<null | number>(null);
+  const fetchRecordsByJobConfig = useGlobalStore(
+    (state) => state.job.fetchRecordsByJobConfig
+  );
+
+  const errorHandler = useContext(ErrorMessageContext);
+
   useEffect(() => {
     if (!config) return;
-    fetch(
-      host +
-        "/api/curator/job/records?" +
-        new URLSearchParams({ id: config.id, success: "false" }).toString(),
-      {
-        credentials: credentialsValue,
-      }
-    )
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`Unexpected response (${response.statusText}).`);
-        }
-        return response.json();
-      })
-      .then((json) => {
-        setIssues(json.length);
-      })
-      .catch((error) => {
-        alert(error.message);
-      });
-  }, [config]);
+    fetchRecordsByJobConfig({
+      jobConfigId: config.id,
+      success: "false",
+      onSuccess: (records) => setIssues(records.length),
+      onFail: (error) =>
+        errorHandler?.pushMessage({
+          id: `fetch-issues-${config.id}`,
+          text: error,
+        }),
+    });
+    // eslint-disable-next-line
+  }, [config, fetchRecordsByJobConfig]);
 
   if (!config) return <Table.HeadCell>{t("Issues")}</Table.HeadCell>;
   return <Table.Cell>{issues ?? <Spinner size="xs" />}</Table.Cell>;
@@ -174,6 +163,11 @@ export function ActionsCell({ config }: TableCellProps) {
   const templates = useGlobalStore((state) => state.template.templates);
   const fetchList = useGlobalStore((state) => state.job.fetchList);
   const fetchJobConfig = useGlobalStore((state) => state.job.fetchJobConfig);
+  const fetchJobInfo = useGlobalStore((state) => state.job.fetchJobInfo);
+
+  const errorHandler = useContext(ErrorMessageContext);
+
+  const [showConfirmWatchModal, setShowConfirmWatchModal] = useState(false);
   const [loadingJobExecution, setLoadingJobExecution] = useState(false);
   const [loadingDelete, setLoadingDelete] = useState(false);
   const [showCUModal, setShowCUModal] = useState(false);
@@ -184,6 +178,52 @@ export function ActionsCell({ config }: TableCellProps) {
   // devMode-Modal for tracking job progress
   const [token, setToken] = useState<string | null>(null);
   const [showDebugJobModal, setShowDebugJobModal] = useState(false);
+
+  function submitJob() {
+    if (!config) return;
+    setLoadingJobExecution(true);
+    fetch(
+      host +
+        "/api/curator/job?" +
+        new URLSearchParams({ id: config.id }).toString(),
+      {
+        method: "POST",
+        credentials: credentialsValue,
+      }
+    )
+      .then((response) => {
+        setLoadingJobExecution(false);
+        if (!response.ok) {
+          response.text().then((text) =>
+            errorHandler?.pushMessage({
+              id: `submit-${config.id}`,
+              text: `${t(
+                `Starten eines Jobs mittels Jobkonfiguration '${
+                  config.name ?? config.id
+                }' nicht erfolgreich`
+              )}: ${text}`,
+            })
+          );
+          return;
+        }
+        return response.json();
+      })
+      .then((json) => {
+        fetchJobConfig({ jobConfigId: config.id });
+        setToken(json.value);
+        setShowDebugJobModal(true);
+      })
+      .catch((error) => {
+        errorHandler?.pushMessage({
+          id: `submit-${config.id}`,
+          text: `${t(
+            `Fehler beim Starten eines Jobs mittels Jobkonfiguration '${
+              config.name ?? config.id
+            }'`
+          )}: ${error.message}`,
+        });
+      });
+  }
 
   if (!config)
     return <Table.HeadCell className="w-1">{t("Aktionen")}</Table.HeadCell>;
@@ -201,44 +241,73 @@ export function ActionsCell({ config }: TableCellProps) {
       ) : null}
       <div className="flex flex-row space-x-1">
         {acl?.CREATE_JOB ? (
-          <Button
-            className="p-0 aspect-square items-center"
-            size="xs"
-            disabled={loadingJobExecution || config.status !== "ok"}
-            onClick={() => {
-              setLoadingJobExecution(true);
-              fetch(
-                host +
-                  "/api/curator/job?" +
-                  new URLSearchParams({ id: config.id }).toString(),
-                {
-                  method: "POST",
-                  credentials: credentialsValue,
-                }
-              )
-                .then((response) => {
-                  setLoadingJobExecution(false);
-                  if (!response.ok) {
-                    throw new Error(
-                      `Unexpected response (${response.statusText}).`
-                    );
-                  }
-                  return response.json();
-                })
-                .then((json) => {
-                  // FIXME: replace when ready
-                  fetchJobConfig({ jobConfigId: config.id });
-                  setToken(json.value);
-                  setShowDebugJobModal(true);
-                })
-                .catch((error) => {
-                  // FIXME: replace when ready
-                  alert(error.message);
+          <>
+            <Button
+              className="p-0 aspect-square items-center"
+              size="xs"
+              disabled={loadingJobExecution || config.status !== "ok"}
+              onClick={() => {
+                // fetch config to get current latestExec
+                fetchJobConfig({
+                  jobConfigId: config.id,
+                  onFail: (error) =>
+                    errorHandler?.pushMessage({
+                      id: `submit-${config.id}`,
+                      text: t(`Ein Fehler ist aufgetreten: ${error}`),
+                    }),
+                  // fetch latestExec-info if available
+                  onSuccess: (config) => {
+                    if (config.latestExec) {
+                      fetchJobInfo({
+                        token: config.latestExec,
+                        onFail: (error) =>
+                          errorHandler?.pushMessage({
+                            id: `submit-${config.id}`,
+                            text: t(`Ein Fehler ist aufgetreten: ${error}`),
+                          }),
+                        onSuccess: (jobInfo) => {
+                          // offer to watch job that is not yet completed or submit otherwise
+                          if (
+                            ["completed", "aborted"].includes(
+                              jobInfo.status ?? ""
+                            )
+                          )
+                            submitJob();
+                          else setShowConfirmWatchModal(true);
+                        },
+                      });
+                    } else submitJob();
+                  },
                 });
-            }}
-          >
-            {loadingJobExecution ? <Spinner size="sm" /> : <FiPlay size={20} />}
-          </Button>
+              }}
+            >
+              {loadingJobExecution ? (
+                <Spinner size="sm" />
+              ) : (
+                <FiPlay size={20} />
+              )}
+            </Button>
+            <ConfirmModal
+              show={showConfirmWatchModal}
+              title={t("Job verfolgen")}
+              onConfirm={() => {
+                setShowConfirmWatchModal(false);
+                if (config.latestExec) {
+                  setToken(config.latestExec);
+                  setShowDebugJobModal(true);
+                }
+              }}
+              onCancel={() => {
+                setShowConfirmWatchModal(false);
+              }}
+            >
+              <span>
+                {t(
+                  "Es läuft bereits ein Job mit dieser Konfiguration. Möchten Sie diesen Job verfolgen?"
+                )}
+              </span>
+            </ConfirmModal>
+          </>
         ) : null}
         {acl?.READ_JOBCONFIG ? (
           <Button
@@ -262,11 +331,12 @@ export function ActionsCell({ config }: TableCellProps) {
                   config.templateId === undefined ||
                   templates[config.templateId] === undefined
                 ) {
-                  alert(
-                    t(
+                  errorHandler?.pushMessage({
+                    id: `update-${config.id}`,
+                    text: t(
                       "Etwas ist schief gelaufen, eine der Konfigurationen für Job, Arbeitsbereich oder Template fehlt."
-                    )
-                  );
+                    ),
+                  });
                   return;
                 }
                 initFromConfig(
@@ -313,18 +383,33 @@ export function ActionsCell({ config }: TableCellProps) {
                     credentials: credentialsValue,
                   }
                 )
-                  .then(async (response) => {
+                  .then((response) => {
                     setLoadingDelete(false);
                     if (!response.ok) {
-                      throw new Error(
-                        `Unexpected response (${await response.text()}).`
+                      response.text().then((text) =>
+                        errorHandler?.pushMessage({
+                          id: `delete-${config.id}`,
+                          text: `${t(
+                            `Löschen von Jobkonfiguration '${
+                              config.name ?? config.id
+                            }' nicht erfolgreich`
+                          )}: ${text}`,
+                        })
                       );
+                      return;
                     }
                     fetchList({ replace: true });
                   })
                   .catch((error) => {
                     setLoadingDelete(false);
-                    alert(error.message);
+                    errorHandler?.pushMessage({
+                      id: `delete-${config.id}`,
+                      text: `${t(
+                        `Fehler beim Löschen von Jobkonfiguration '${
+                          config.name ?? config.id
+                        }'`
+                      )}: ${error.message}`,
+                    });
                     fetchList({ replace: true });
                   });
               }}

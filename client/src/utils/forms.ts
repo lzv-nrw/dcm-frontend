@@ -1,3 +1,4 @@
+import { MessageHandler } from "../components/MessageBox";
 import t from "./translation";
 
 /**
@@ -26,9 +27,7 @@ export interface Validator<
   children: Partial<Record<ChildrenType, Validator>>;
   validate: (
     force: boolean
-  ) =>
-    | ValidationReportWithChildren<ChildrenType>
-    | undefined;
+  ) => ValidationReportWithChildren<ChildrenType> | undefined;
   report?: ValidationReport;
 }
 
@@ -75,10 +74,9 @@ export function createValidateWithChildren<
         ] = report;
 
       // also consider all children for parent (if conclusive)
-      if (report?.ok !== undefined)
-        ok = (ok ?? report.ok) && report.ok;
+      if (report?.ok !== undefined) ok = (ok ?? report.ok) && report.ok;
     }
-    result.ok = (strict && ok === undefined) ? false : ok;
+    result.ok = strict && ok === undefined ? false : ok;
     return result;
   };
 }
@@ -154,6 +152,42 @@ export const ValidationMessages = {
   GenericEmptyValue: () => t(`Feld darf nicht leer sein.`),
   EmptyValue: (name: string) => t(`${name} darf nicht leer sein.`),
 };
+
+/**
+ * Processes report with children over two nested layers (top, section, input).
+ * Only pushes new messages.
+ * @param report report to be processed
+ * @param handler handler for pushing messages
+ */
+export function applyReportToMessageHandler(
+  report: ValidationReportWithChildren,
+  handler: MessageHandler
+) {
+  if (report.ok) return;
+  handler.pushMessage({
+    id: "bad-form-generic",
+    text: ValidationMessages.GenericBadForm(),
+  });
+  // iterate all children to list problems
+  for (const [sname, section] of Object.entries(report.children ?? {})) {
+    // section-level messages
+    for (const msg of section?.errors ?? []) {
+      handler.pushMessage({
+        id: `bad-form-${sname}`,
+        text: msg,
+      });
+    }
+    for (const [iname, input] of Object.entries(section?.children ?? {})) {
+      // input-level messages
+      for (const msg of input?.errors ?? []) {
+        handler.pushMessage({
+          id: `bad-form-${sname}-${iname}`,
+          text: msg,
+        });
+      }
+    }
+  }
+}
 
 /**
  * ==================== Form validation end ====================

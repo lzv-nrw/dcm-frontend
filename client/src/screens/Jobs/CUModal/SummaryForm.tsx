@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { Alert, Button, Spinner, Table } from "flowbite-react";
+import { Button, Spinner, Table } from "flowbite-react";
 import { FiCheckCircle, FiXCircle } from "react-icons/fi";
 
 import t from "../../../utils/translation";
@@ -16,6 +16,7 @@ import { useFormStore } from "./store";
 import { getStageTitle, StageOrder } from "../DebugJobModal";
 import { HotfolderDataSelection, OaiDataSelection } from "./DataSelectionForm";
 import { combineDateAndTime, ScheduleTypeInfo } from "./SchedulingForm";
+import { ErrorMessageContext } from "./Modal";
 
 export function SummaryForm({ name }: FormSectionComponentProps) {
   const [
@@ -38,58 +39,13 @@ export function SummaryForm({ name }: FormSectionComponentProps) {
     ])
   );
 
+  const errorHandler = useContext(ErrorMessageContext);
+
   const [jobInfos, fetchJobInfo] = useGlobalStore(
     useShallow((state) => [state.job.jobInfos, state.job.fetchJobInfo])
   );
   const [testJobRunning, setTestJobRunning] = useState(false);
-  const [testJobError, setTestJobError] = useState<string | null>(null);
   const [testJobToken, setTestJobToken] = useState<string | null>(null);
-
-  const [rightsFieldsConfiguration, setRightsFieldsConfiguration] =
-    useState<FieldConfiguration>({});
-  const [sigPropFieldsConfiguration, setSigPropFieldsConfiguration] =
-    useState<FieldConfiguration>({});
-  const [preservationFieldsConfiguration, setPreservationFieldsConfiguration] =
-    useState<FieldConfiguration>({});
-
-  // load
-  // * rightsFieldsConfiguration,
-  // * sigPropFieldsConfiguration,
-  // * preservationFieldsConfiguration
-  // from API
-  useEffect(() => {
-    fetch(host + "/api/curator/job-config/configuration/rights", {
-      credentials: credentialsValue,
-    })
-      .then((response) => {
-        if (!response.ok) return;
-        response.json().then((json) => setRightsFieldsConfiguration(json));
-      })
-      .catch(() => {});
-  }, []);
-  useEffect(() => {
-    fetch(
-      host + "/api/curator/job-config/configuration/significant-properties",
-      { credentials: credentialsValue }
-    )
-      .then((response) => {
-        if (!response.ok) return;
-        response.json().then((json) => setSigPropFieldsConfiguration(json));
-      })
-      .catch(() => {});
-  }, []);
-  useEffect(() => {
-    fetch(host + "/api/curator/job-config/configuration/preservation", {
-      credentials: credentialsValue,
-    })
-      .then((response) => {
-        if (!response.ok) return;
-        response
-          .json()
-          .then((json) => setPreservationFieldsConfiguration(json));
-      })
-      .catch(() => {});
-  }, []);
 
   // fetch jobInfo for test-job until done
   useEffect(() => {
@@ -105,13 +61,16 @@ export function SummaryForm({ name }: FormSectionComponentProps) {
           token: testJobToken,
           useACL: true,
           forceReload: true,
-          onSuccess: () => setTestJobError(null),
-          onFail: (e) => {
-            setTestJobError(e);
-          },
+          onSuccess: () => errorHandler?.removeMessage("test-job-info-failed"),
+          onFail: (e) =>
+            errorHandler?.pushMessage({
+              id: `test-job-info-failed`,
+              text: e,
+            }),
         });
     }, 1000);
     return () => clearInterval(interval);
+    // eslint-disable-next-line
   }, [testJobToken, jobInfos, fetchJobInfo]);
 
   /**
@@ -160,6 +119,7 @@ export function SummaryForm({ name }: FormSectionComponentProps) {
       <div className="flex justify-between">
         <h3 className="text-xl font-bold">{name}</h3>
         <Button
+          className="absolute right-6"
           disabled={testJobRunning}
           onClick={() => {
             if (template === undefined) {
@@ -171,6 +131,8 @@ export function SummaryForm({ name }: FormSectionComponentProps) {
               return;
             }
             setTestJobRunning(true);
+            errorHandler?.removeMessage("test-job-submission-bad-response");
+            errorHandler?.removeMessage("test-job-submission-error");
             fetch(host + "/api/curator/job-test", {
               method: "POST",
               credentials: credentialsValue,
@@ -185,18 +147,31 @@ export function SummaryForm({ name }: FormSectionComponentProps) {
               .then((response) => {
                 if (!response.ok) {
                   setTestJobRunning(false);
-                  throw new Error(
-                    `Unexpected response (${response.statusText}).`
+                  response.text().then((text) =>
+                    errorHandler?.pushMessage({
+                      id: "test-job-submission-bad-response",
+                      text: `${t(
+                        "Absenden eines Test-Jobs fehlgeschlagen"
+                      )}: ${text}`,
+                    })
                   );
+                  return;
                 }
-                return response.json();
-              })
-              .then((json) => {
-                setTestJobToken(json.value);
+                document
+                  .getElementById("sectionedFormBody")
+                  ?.scroll({ top: 0, left: 0 });
+                response.json().then((json) => {
+                  setTestJobToken(json.value);
+                });
               })
               .catch((error) => {
                 setTestJobRunning(false);
-                setTestJobError(error.message);
+                errorHandler?.pushMessage({
+                  id: `test-job-submission-error`,
+                  text: `${t("Absenden eines Test-Jobs fehlgeschlagen")}: ${
+                    error.message
+                  }`,
+                });
               });
           }}
         >
@@ -218,14 +193,6 @@ export function SummaryForm({ name }: FormSectionComponentProps) {
             <>
               <span className="font-semibold">{t("Testergebnis")}</span>
               <div className="text-sm break-all">
-                {testJobError ? (
-                  <Alert
-                    color="failure"
-                    onDismiss={() => setTestJobError(null)}
-                  >
-                    {testJobError}
-                  </Alert>
-                ) : null}
                 <div className="table p-1 pb-2">
                   <Table hoverable>
                     <Table.Head>
@@ -492,7 +459,7 @@ export function SummaryForm({ name }: FormSectionComponentProps) {
                     formatOperationsByCount(
                       dataProcessing.rightsOperations ?? [],
                       field,
-                      rightsFieldsConfiguration
+                      dataProcessing.rightsFieldsConfiguration ?? {}
                     )
                   )
                   .map((formattedField, index) =>
@@ -516,7 +483,7 @@ export function SummaryForm({ name }: FormSectionComponentProps) {
                     formatOperationsByCount(
                       dataProcessing.sigPropOperations ?? [],
                       field,
-                      sigPropFieldsConfiguration
+                      dataProcessing.sigPropFieldsConfiguration ?? {}
                     )
                   )
                   .map((formattedField, index) =>
@@ -538,7 +505,7 @@ export function SummaryForm({ name }: FormSectionComponentProps) {
                     formatOperationsByCount(
                       dataProcessing.preservationOperations ?? [],
                       field,
-                      preservationFieldsConfiguration
+                      dataProcessing.preservationFieldsConfiguration ?? {}
                     )
                   )
                   .map((formattedField, index) =>

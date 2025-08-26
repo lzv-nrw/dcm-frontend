@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { Label, Select } from "flowbite-react";
+import { FiLock } from "react-icons/fi";
 
 import t from "../../../utils/translation";
 import {
@@ -38,12 +39,13 @@ export default function TargetForm({
   active,
 }: FormSectionComponentProps) {
   const targetSystems = {
-    hbzRosetta: { id: "hbzRosetta", name: "hbz-Rosetta" },
+    // hbzRosetta: { id: "hbzRosetta", name: "hbz-Rosetta" },
     rosettaDummy: { id: "rosettaDummy", name: "Rosetta-Dummy" },
   };
   const [target, setTarget] = useFormStore(
     useShallow((state) => [state.target, state.setTarget])
   );
+  const linkedJobs = useFormStore((state) => state.linkedJobs);
   const [validator, setCurrentValidationReport] = useFormStore(
     useShallow((state) => [state.validator, state.setCurrentValidationReport])
   );
@@ -74,14 +76,15 @@ export default function TargetForm({
   }, [target?.targetId]);
   // * form section
   useEffect(() => {
-    if (!formVisited || active) return;
+    if (!formVisited) return;
+    if (validator.children?.target?.report?.ok === undefined && active) return;
     setCurrentValidationReport({
       children: {
         target: validator.children?.target?.validate(true),
       },
     });
     // eslint-disable-next-line
-  }, [active]);
+  }, [active, target?.targetId]);
 
   return (
     <>
@@ -89,30 +92,34 @@ export default function TargetForm({
       <div className="flex flex-col w-full space-y-2">
         <div className="space-y-2">
           <Label htmlFor="targetId" value="" />
-          <Select
-            id="targetId"
-            value={target?.targetId ?? ""}
-            color={getTextInputColor({
-              ok:
-                focus === "targetId"
-                  ? undefined
-                  : validator.children.target?.children.targetId?.report?.ok,
-            })}
-            onChange={(e) => setTarget({ targetId: e.target.value })}
-            onFocus={(e) => setFocus(e.target.id)}
-            onBlur={() => setFocus("")}
-          >
-            <option value="">{t("Bitte auswählen")}</option>
-            {Object.values(targetSystems)
-              .sort((a, b) =>
-                a.name.toLowerCase() > b.name.toLowerCase() ? 1 : -1
-              )
-              .map(({ id, name }) => (
-                <option key={id} value={id}>
-                  {name}
-                </option>
-              ))}
-          </Select>
+          <div className="flex flex-row space-x-2 items-center">
+            <Select
+              id="targetId"
+              disabled={(linkedJobs ?? 0) > 0}
+              value={target?.targetId ?? ""}
+              color={getTextInputColor({
+                ok:
+                  focus === "targetId"
+                    ? undefined
+                    : validator.children.target?.children.targetId?.report?.ok,
+              })}
+              onChange={(e) => setTarget({ targetId: e.target.value })}
+              onFocus={(e) => setFocus(e.target.id)}
+              onBlur={() => setFocus("")}
+            >
+              <option value="">{t("Bitte auswählen")}</option>
+              {Object.values(targetSystems)
+                .sort((a, b) =>
+                  a.name.toLowerCase() > b.name.toLowerCase() ? 1 : -1
+                )
+                .map(({ id, name }) => (
+                  <option key={id} value={id}>
+                    {name}
+                  </option>
+                ))}
+            </Select>
+            {(linkedJobs ?? 0) > 0 && <FiLock />}
+          </div>
         </div>
       </div>
     </>

@@ -189,3 +189,31 @@ def test_modify_workspace_metadata(
     )
     assert response.json.get("userModified") == DemoData.user0
     assert response.json.get("datetimeModified") != datetime_modified
+
+
+def test_delete_workspace(
+    run_service,
+    backend_app,
+    backend_port,
+    client_w_login,
+    minimal_workspace_config,
+):
+    """Test of DELETE /workspace-endpoint."""
+
+    run_service(app=backend_app, port=backend_port, probing_path="ready")
+
+    # create workspace that can be deleted
+    workspace_id = client_w_login.post(
+        "/api/admin/workspace",
+        json=minimal_workspace_config,
+    ).json.get("id")
+
+    # check - delete -check
+    assert workspace_id in client_w_login.get("/api/admin/workspaces").json
+    assert (
+        client_w_login.delete(
+            f"/api/admin/workspace?id={workspace_id}"
+        ).status_code
+        == 200
+    )
+    assert workspace_id not in client_w_login.get("/api/admin/workspaces").json

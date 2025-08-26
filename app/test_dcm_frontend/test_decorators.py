@@ -25,7 +25,7 @@ def test_requires_permission(config, has_permission):
     """Test decorator `requires_permission`."""
 
     with patch.object(
-        decorators, "current_session", new=Session("", "", User(config))
+        decorators, "current_session", new=Session(user=User(config))
     ):
 
         @decorators.requires_permission(
@@ -72,7 +72,7 @@ def test_requires_permission(config, has_permission):
 def test_generate_workspaces(config, workspaces_):
     """Test decorator `generate_workspaces`."""
     with patch.object(
-        decorators, "current_session", new=Session("", "", User(config))
+        decorators, "current_session", new=Session(user=User(config))
     ):
 
         @decorators.generate_workspaces(

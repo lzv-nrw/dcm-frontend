@@ -2,6 +2,8 @@
 Authentication View-class definition
 """
 
+import sys
+from hashlib import sha512
 from uuid import uuid4
 from datetime import datetime, timedelta
 
@@ -51,17 +53,17 @@ class AuthView(services.View):
         return expires_at > datetime.now()
 
     def update_session_expiration(
-        self, session_id: str, session: dict
+        self, session_key: str, session: dict
     ) -> None:
         """
         Updates session's-expiresAt field in the session-store.
 
         Keyword arguments:
-        session_id -- session identifier
+        session_key -- session identifier
         session -- session as JSON
         """
         self.config.sessions.write(
-            session_id,
+            session_key,
             session
             | (
                 {
@@ -132,14 +134,19 @@ class AuthView(services.View):
                 request_timeout=self.config.BACKEND_TIMEOUT,
             )
             if response.status_code != 200:
+                print(f"Failed login: {response.fail_reason}", file=sys.stderr)
                 return Response(
                     response.fail_reason,
                     mimetype="text/plain",
                     status=response.status_code,
                 )
 
-            # create session-object with random session-id and configuration id
-            session = Session(str(uuid4()), response.data.id)
+            # create session-object with random session-id and user'self
+            # configuration id
+            session = Session(id=str(uuid4()), user_config_id=response.data.id)
+            session.key = sha512(
+                session.id.encode(encoding="utf-8")
+            ).hexdigest()
 
             # store/update user-configuration
             config_jsonable = response.data.to_dict()
@@ -148,11 +155,15 @@ class AuthView(services.View):
                     response.data.id, config_jsonable
                 )
 
-            # create session-record in sessions-db
+            # create record in sessions-db
             self.update_session_expiration(
-                session.id, {"userConfigId": response.data.id}
+                session.key, {"userConfigId": response.data.id}
             )
 
+            print(
+                f"Successful login for user '{response.data.username}'.",
+                file=sys.stderr,
+            )
             login_user(session)
 
             return jsonify(config_jsonable), 200
@@ -162,7 +173,12 @@ class AuthView(services.View):
         @login_required
         def logout():
             """Log user out."""
-            self.config.sessions.delete(current_user.get_id())
+            self.config.sessions.delete(current_user.key)
+            print(
+                "Successful logout for user "
+                + f"'{current_user.user.config.get('username', '??')}'.",
+                file=sys.stderr,
+            )
             logout_user()
             return Response("Logout", mimetype="text/plain", status=200)
 

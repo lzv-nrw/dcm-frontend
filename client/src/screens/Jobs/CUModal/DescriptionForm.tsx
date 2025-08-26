@@ -72,14 +72,16 @@ export function DescriptionForm({ name, active }: FormSectionComponentProps) {
   }, [description?.name]);
   // * form section
   useEffect(() => {
-    if (!formVisited || active) return;
+    if (!formVisited) return;
+    if (validator.children?.description?.report?.ok === undefined && active)
+      return;
     setCurrentValidationReport({
       children: {
         description: validator.children?.description?.validate(true),
       },
     });
     // eslint-disable-next-line
-  }, [active]);
+  }, [active, description?.name]);
 
   return (
     <>

@@ -67,7 +67,9 @@ export function SchedulingForm({ name, active }: FormSectionComponentProps) {
   // handle validation
   // * form section
   useEffect(() => {
-    if (!formVisited || active) return;
+    if (!formVisited) return;
+    if (validator.children?.scheduling?.report?.ok === undefined && active)
+      return;
     setCurrentValidationReport({
       children: {
         scheduling: validator.children?.scheduling?.validate(true),

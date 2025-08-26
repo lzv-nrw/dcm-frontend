@@ -150,9 +150,11 @@ function ModalHeader({
   return (
     <>
       <div className={`px-6 py-4 flex justify-between ${className}`}>
-        <div>
+        <div className="w-full">
           {title ? (
-            <h3 className="text-2xl font-bold text-gray-900">{title}</h3>
+            <h3 className="text-2xl font-bold text-gray-900 dcm-clamp-text">
+              {title}
+            </h3>
           ) : null}
           {children}
         </div>

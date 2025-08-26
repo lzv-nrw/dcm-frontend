@@ -22,6 +22,7 @@ interface SectionedFormProps {
   tab: number;
   setTab?: (tab: number) => void;
   sidebarWidth?: string;
+  showEditIcon?: boolean;
 }
 
 export default function SectionedForm({
@@ -29,9 +30,10 @@ export default function SectionedForm({
   tab,
   setTab,
   sidebarWidth,
+  showEditIcon = false,
 }: SectionedFormProps) {
   return (
-    <div className="h-full flex flex-row">
+    <div className="h-full flex flex-row relative">
       <Sidebar className="select-none [&>div]:bg-transparent">
         <Sidebar.Items>
           <Sidebar.ItemGroup>
@@ -39,22 +41,18 @@ export default function SectionedForm({
               <Sidebar.Item
                 key={sec.tab}
                 onClick={() => setTab?.(sec.tab)}
-                className={tab === sec.tab && "hover:bg-transparent"}
+                className={tab === sec.tab && "bg-gray-100"}
               >
                 <div
-                  className={
-                    "flex flex-row justify-between items-center " +
-                    (sidebarWidth ?? "w-auto")
-                  }
+                  className={`flex flex-row justify-between items-center ${
+                    sidebarWidth ?? "w-auto"
+                  } ${
+                    tab === sec.tab ? "font-semibold" : "hover:cursor-pointer"
+                  }`}
                 >
-                  <p
-                    className={
-                      tab === sec.tab ? "font-semibold" : "hover:cursor-pointer"
-                    }
-                  >
-                    {sec.name}
-                  </p>
-                  {!(sec.showIcon ?? true) ? null : tab === sec.tab ? (
+                  <p>{sec.name}</p>
+                  {!(sec.showIcon ?? true) ? null : tab === sec.tab &&
+                    showEditIcon ? (
                     <FiEdit
                       aria-label="edit"
                       size="20"
@@ -79,7 +77,10 @@ export default function SectionedForm({
           </Sidebar.ItemGroup>
         </Sidebar.Items>
       </Sidebar>
-      <div className="px-2 py-4 w-full h-full overflow-y-auto">
+      <div
+        id="sectionedFormBody"
+        className="px-2 py-4 w-full h-full overflow-y-auto"
+      >
         {sections.map((sec) => (
           <div
             key={sec.tab}

@@ -1,11 +1,19 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, createContext } from "react";
 import { Button, Alert } from "flowbite-react";
 import { Navigate } from "react-router";
 
 import t from "../../utils/translation";
 import useGlobalStore from "../../store";
+import MessageBox, {
+  MessageHandler,
+  useMessageHandler,
+} from "../../components/MessageBox";
 import NewWorkspaceModal from "./NewWorkspaceModal";
 import WorkspaceDisplay from "./WorkspaceDisplay";
+
+export const ErrorMessageContext = createContext<MessageHandler | undefined>(
+  undefined
+);
 
 interface WorkspacesScreenProps {
   useACL?: boolean;
@@ -14,7 +22,8 @@ interface WorkspacesScreenProps {
 export default function WorkspacesScreen({
   useACL = false,
 }: WorkspacesScreenProps) {
-  const [error, setError] = useState<string | null>(null);
+  const errorMessageHandler = useMessageHandler([]);
+
   const [showNewWorkspaceModal, setShowNewWorkspaceModal] = useState(false);
   const fetchGroups = useGlobalStore((state) => state.permission.fetchGroups);
   const workspaceStore = useGlobalStore((state) => state.workspace);
@@ -29,7 +38,11 @@ export default function WorkspacesScreen({
     () =>
       fetchGroups({
         useACL: useACL,
-        onFail: (msg) => setError(`Unable to list user ids: ${msg}`),
+        onFail: (msg) =>
+          errorMessageHandler.pushMessage({
+            id: "fetch-user-groups",
+            text: msg,
+          }),
       }),
     // eslint-disable-next-line
     [useACL]
@@ -39,7 +52,11 @@ export default function WorkspacesScreen({
     () =>
       workspaceStore.fetchList({
         useACL: useACL,
-        onFail: (msg) => setError(`Unable to list workspace ids: ${msg}`),
+        onFail: (msg) =>
+          errorMessageHandler.pushMessage({
+            id: "fetch-workspace-config-list",
+            text: msg,
+          }),
       }),
     // eslint-disable-next-line
     [useACL]
@@ -50,9 +67,10 @@ export default function WorkspacesScreen({
       workspaceStore.fetchWorkspace({
         workspaceId,
         onFail: (msg) =>
-          setError(
-            `Unable to load workspace configuration (${workspaceId}): ${msg}`
-          ),
+          errorMessageHandler.pushMessage({
+            id: `fetch-workspace-config-${workspaceId}`,
+            text: msg,
+          }),
       });
     }
     // eslint-disable-next-line
@@ -62,7 +80,11 @@ export default function WorkspacesScreen({
     () =>
       templateStore.fetchList({
         useACL: useACL,
-        onFail: (msg) => setError(`Unable to list template ids: ${msg}`),
+        onFail: (msg) =>
+          errorMessageHandler.pushMessage({
+            id: "fetch-template-config-list",
+            text: msg,
+          }),
       }),
     // eslint-disable-next-line
     [useACL]
@@ -73,9 +95,10 @@ export default function WorkspacesScreen({
       templateStore.fetchTemplate({
         templateId,
         onFail: (msg) =>
-          setError(
-            `Unable to load template configuration (${templateId}): ${msg}`
-          ),
+          errorMessageHandler.pushMessage({
+            id: `fetch-template-config-${templateId}`,
+            text: msg,
+          }),
       });
     }
     // eslint-disable-next-line
@@ -85,7 +108,11 @@ export default function WorkspacesScreen({
     () =>
       userStore.fetchList({
         useACL: useACL,
-        onFail: (msg) => setError(`Unable to list user ids: ${msg}`),
+        onFail: (msg) =>
+          errorMessageHandler.pushMessage({
+            id: "fetch-user-config-list",
+            text: msg,
+          }),
       }),
     // eslint-disable-next-line
     [useACL]
@@ -96,7 +123,10 @@ export default function WorkspacesScreen({
       userStore.fetchUser({
         userId,
         onFail: (msg) =>
-          setError(`Unable to load user configuration (${userId}): ${msg}`),
+          errorMessageHandler.pushMessage({
+            id: `fetch-user-config-${userId}`,
+            text: msg,
+          }),
       });
     }
     // eslint-disable-next-line
@@ -106,41 +136,43 @@ export default function WorkspacesScreen({
   return useACL && !acl?.VIEW_SCREEN_WORKSPACES ? (
     <Navigate to="/" replace />
   ) : (
-    <div className="mx-20 mt-4">
-      <div className="flex justify-between items-center relative w-full mb-10">
-        <h1 className="text-4xl font-bold">{t("Arbeitsbereiche")}</h1>
-        {useACL && !acl?.CREATE_WORKSPACE ? null : (
-          <Button onClick={() => setShowNewWorkspaceModal(true)}>
-            {t("Arbeitsbereich erstellen")}
-          </Button>
-        )}
-        <NewWorkspaceModal
-          show={showNewWorkspaceModal}
-          onClose={() => setShowNewWorkspaceModal(false)}
-        />
-      </div>
-      {error ? (
-        <Alert color="failure" onDismiss={() => setError(null)}>
-          {error}
-        </Alert>
-      ) : null}
-      {useACL && !acl?.READ_WORKSPACE ? (
-        <Alert className="my-2" color="warning">
-          {t("Kein Lese-Zugriff auf Arbeitsbereichkonfigurationen.")}
-        </Alert>
-      ) : (
-        <div className="relative grid grid-cols-2 gap-10">
-          {Object.values(workspaceStore.workspaces)
-            .sort((a, b) => (a.name > b.name ? 1 : -1))
-            .map((workspace) => (
-              <WorkspaceDisplay
-                key={workspace.id}
-                workspace={workspace}
-                useACL={useACL}
-              />
-            ))}
+    <ErrorMessageContext.Provider value={errorMessageHandler}>
+      <div className="mx-20 mt-4">
+        <div className="flex justify-between items-center relative w-full mb-5">
+          <h1 className="text-4xl font-bold">{t("Arbeitsbereiche")}</h1>
+          {useACL && !acl?.CREATE_WORKSPACE ? null : (
+            <Button onClick={() => setShowNewWorkspaceModal(true)}>
+              {t("Arbeitsbereich erstellen")}
+            </Button>
+          )}
+          <NewWorkspaceModal
+            show={showNewWorkspaceModal}
+            onClose={() => setShowNewWorkspaceModal(false)}
+          />
         </div>
-      )}
-    </div>
+        <MessageBox
+          messages={errorMessageHandler.messages}
+          messageTitle={t("Ein Fehler ist aufgetreten:")}
+          onDismiss={errorMessageHandler.clearMessages}
+        />
+        {useACL && !acl?.READ_WORKSPACE ? (
+          <Alert className="my-2" color="warning">
+            {t("Kein Lese-Zugriff auf Arbeitsbereichkonfigurationen.")}
+          </Alert>
+        ) : (
+          <div className="relative grid grid-cols-2 py-4 gap-5">
+            {Object.values(workspaceStore.workspaces)
+              .sort((a, b) => (a.name > b.name ? 1 : -1))
+              .map((workspace) => (
+                <WorkspaceDisplay
+                  key={workspace.id}
+                  workspace={workspace}
+                  useACL={useACL}
+                />
+              ))}
+          </div>
+        )}
+      </div>
+    </ErrorMessageContext.Provider>
   );
 }

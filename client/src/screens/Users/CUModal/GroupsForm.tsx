@@ -9,19 +9,21 @@ import { useFormStore } from "./store";
 import GroupMembershipInput from "./GroupMembershipInput";
 import useGlobalStore from "../../../store";
 
-export type RightsFormChildren = "memberships";
-export type RightsFormValidator = Validator<RightsFormChildren>;
+export type GroupsFormChildren = "memberships";
+export type GroupsFormValidator = Validator<GroupsFormChildren>;
 
-export interface Rights {
+export interface Groups {
   memberships?: GroupMembership[];
 }
 
-export function RightsForm({ name, active }: FormSectionComponentProps) {
+export function GroupsForm({ name, active }: FormSectionComponentProps) {
   const workspaces = useGlobalStore((state) => state.workspace.workspaces);
-  const groups = useGlobalStore((state) => state.permission.groups);
+  const groupsConfiguration = useGlobalStore(
+    (state) => state.permission.groups
+  );
 
-  const [rights, setRights] = useFormStore(
-    useShallow((state) => [state.rights, state.setRights])
+  const [groups, setGroups] = useFormStore(
+    useShallow((state) => [state.groups, state.setGroups])
   );
   const [validator, setCurrentValidationReport] = useFormStore(
     useShallow((state) => [state.validator, state.setCurrentValidationReport])
@@ -37,10 +39,11 @@ export function RightsForm({ name, active }: FormSectionComponentProps) {
   // handle validation
   // * form section
   useEffect(() => {
-    if (!formVisited || active) return;
+    if (!formVisited) return;
+    if (validator.children?.groups?.report?.ok === undefined && active) return;
     setCurrentValidationReport({
       children: {
-        rights: validator.children?.rights?.validate(true),
+        groups: validator.children?.groups?.validate(true),
       },
     });
     // eslint-disable-next-line
@@ -50,18 +53,16 @@ export function RightsForm({ name, active }: FormSectionComponentProps) {
     <>
       <h3 className="text-xl font-bold">{name}</h3>
       <div className="flex flex-col w-full space-y-2">
-        {(rights?.memberships ?? []).length === 0 ? (
-          <span>
-            {t("Noch keine Rollen hinzugefügt.")}
-          </span>
+        {(groups?.memberships ?? []).length === 0 ? (
+          <span>{t("Noch keine Rollen hinzugefügt.")}</span>
         ) : (
           <span className="font-semibold">{t("Hinzugefügte Rollen")}</span>
         )}
         <GroupMembershipInput
-          groups={groups ?? []}
+          groups={groupsConfiguration ?? []}
           workspaces={Object.values(workspaces)}
-          memberships={rights?.memberships ?? []}
-          onChange={(memberships) => setRights({ memberships })}
+          memberships={groups?.memberships ?? []}
+          onChange={(memberships) => setGroups({ memberships })}
         />
       </div>
     </>

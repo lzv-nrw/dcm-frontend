@@ -42,10 +42,15 @@ class User:
         ]
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Session(UserMixin):
     """Session data model."""
 
-    id: str
-    user_config_id: str
+    # session id that is set via session-cookie by flask-login
+    id: Optional[str] = None
+    # session key is a sha512-hash of id that is used to identify sessions
+    # in the session-db (this avoids storing the session-id explicitly)
+    key: Optional[str] = None
+
+    user_config_id: Optional[str] = None
     user: Optional[User] = None

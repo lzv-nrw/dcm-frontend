@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { Label, TextInput } from "flowbite-react";
+import { FiLock } from "react-icons/fi";
 
 import t from "../../../utils/translation";
 import {
@@ -57,6 +58,7 @@ export interface Data {
 }
 
 export function DataForm({ name, active }: FormSectionComponentProps) {
+  const userId = useFormStore((state) => state.id);
   const [data, setData] = useFormStore(
     useShallow((state) => [state.data, state.setData])
   );
@@ -131,23 +133,28 @@ export function DataForm({ name, active }: FormSectionComponentProps) {
   }, [data?.email]);
   // * form section
   useEffect(() => {
-    if (!formVisited || active) return;
+    if (!formVisited) return;
+    if (validator.children?.data?.report?.ok === undefined && active) return;
     setCurrentValidationReport({
       children: {
         data: validator.children?.data?.validate(true),
       },
     });
     // eslint-disable-next-line
-  }, [active]);
+  }, [active, data?.username, data?.firstname, data?.lastname, data?.email]);
 
   return (
     <>
       <h3 className="text-xl font-bold">{name}</h3>
       <div className="flex flex-col w-full space-y-2">
         <div className="space-y-2">
-          <Label htmlFor="username" value={t("Benutzername*")} />
+          <div className="flex flex-row space-x-2 items-center">
+            <Label htmlFor="username" value={t("Benutzername*")} />
+            {userId !== undefined && <FiLock />}
+          </div>
           <TextInput
             id="username"
+            disabled={userId !== undefined}
             value={data?.username || ""}
             maxLength={textInputLimit.md}
             color={getTextInputColor({

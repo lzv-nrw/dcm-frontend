@@ -1,16 +1,25 @@
-import { useEffect, useState } from "react";
+import { createContext, useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { Button, Alert, Spinner } from "flowbite-react";
+import { Button, Spinner } from "flowbite-react";
+import { FiAlertCircle } from "react-icons/fi";
 
 import t from "../../../utils/translation";
-import { ValidationMessages } from "../../../utils/forms";
+import { applyReportToMessageHandler } from "../../../utils/forms";
 import useGlobalStore from "../../../store";
 import { credentialsValue, host } from "../../../App";
 import SectionedForm from "../../../components/SectionedForm";
 import Modal from "../../../components/Modal";
+import MessageBox, {
+  MessageHandler,
+  useMessageHandler,
+} from "../../../components/MessageBox";
 import { useFormStore } from "./store";
 import { DataForm } from "./DataForm";
-import { RightsForm } from "./RightsForm";
+import { GroupsForm } from "./GroupsForm";
+
+export const ErrorMessageContext = createContext<MessageHandler | undefined>(
+  undefined
+);
 
 interface CUModalProps {
   show: boolean;
@@ -34,15 +43,16 @@ export default function CUModal({
 
   const formStore = useFormStore();
 
-  const [error, setError] = useState<string | null>(null);
+  const errorMessageHandler = useMessageHandler([]);
   const [sending, setSending] = useState(false);
 
   // reset form on hide
   useEffect(() => {
-    setError(null);
+    errorMessageHandler.clearMessages();
     setSending(false);
     setTab(tab0);
     if (!show) useFormStore.setState(useFormStore.getInitialState(), true);
+    // eslint-disable-next-line
   }, [show, tab0]);
 
   // perform validation if existing configuration has been loaded
@@ -53,33 +63,51 @@ export default function CUModal({
   }, [formStore.id]);
 
   return (
-    <Modal show={show} width="5xl" height="xl" onClose={onClose} dismissible>
-      <Modal.Header title={t("Neuen Nutzer erstellen")} />
-      <Modal.Body>
-        {error ? (
-          <Alert onDismiss={() => setError(null)} color="failure">
-            {error}
-          </Alert>
+    <Modal show={show} width="5xl" height="2xl" onClose={onClose} dismissible>
+      <Modal.Header
+        title={
+          formStore.id ? t("Nutzer bearbeiten") : t("Neuen Nutzer erstellen")
+        }
+      >
+        {formStore.id ? (
+          <div className="flex flex-row space-x-2 items-center text-lg">
+            <FiAlertCircle />
+            <span>
+              {t(
+                "In bestehenden Nutzerkonfigurationen können nicht mehr alle Felder geändert werden."
+              )}
+            </span>
+          </div>
         ) : null}
-        <SectionedForm
-          sections={[
-            {
-              tab: 0,
-              name: t("Nutzerdaten"),
-              Component: DataForm,
-              ok: validator.children?.data?.report?.ok,
-            },
-            {
-              tab: 1,
-              name: t("Rechte"),
-              Component: RightsForm,
-              ok: validator.children?.rights?.report?.ok,
-            },
-          ]}
-          tab={tab}
-          setTab={setTab}
-          sidebarWidth="w-36"
-        />
+      </Modal.Header>
+      <Modal.Body>
+        <ErrorMessageContext.Provider value={errorMessageHandler}>
+          <MessageBox
+            className="my-1"
+            messages={errorMessageHandler.messages}
+            messageTitle={t("Ein Fehler ist aufgetreten:")}
+            onDismiss={errorMessageHandler.clearMessages}
+          />
+          <SectionedForm
+            sections={[
+              {
+                tab: 0,
+                name: t("Nutzerdaten"),
+                Component: DataForm,
+                ok: validator.children?.data?.report?.ok,
+              },
+              {
+                tab: 1,
+                name: t("Rechte"),
+                Component: GroupsForm,
+                ok: validator.children?.groups?.report?.ok,
+              },
+            ]}
+            tab={tab}
+            setTab={setTab}
+            sidebarWidth="w-36"
+          />
+        </ErrorMessageContext.Provider>
       </Modal.Body>
       <Modal.Footer>
         <div className="w-full flex flex-row justify-between">
@@ -101,11 +129,11 @@ export default function CUModal({
                 onClick={() => {
                   const report = validator.validate(true) || {};
                   setCurrentValidationReport(report);
+                  errorMessageHandler.clearMessages();
                   if (!report.ok) {
-                    setError(ValidationMessages.GenericBadForm());
+                    applyReportToMessageHandler(report, errorMessageHandler);
                     return;
                   }
-                  setError(null);
                   setSending(true);
                   fetch(host + "/api/admin/user", {
                     method: formStore.id ? "PUT" : "POST",
@@ -120,23 +148,29 @@ export default function CUModal({
                   })
                     .then((response) => {
                       setSending(false);
-                      if (response.ok) {
-                        fetchUserList({});
-                        onClose?.();
+                      if (!response.ok) {
+                        response.text().then((text) =>
+                          errorMessageHandler.pushMessage({
+                            id: "failed-submit-not-ok",
+                            text: `${t(
+                              `Absenden der Konfiguration nicht erfolgreich`
+                            )}: ${text}`,
+                          })
+                        );
                         return;
                       }
-                      response
-                        .text()
-                        .then((text) =>
-                          setError(t("Unerwartete Antwort") + ": " + text)
-                        );
+                      fetchUserList({});
+                      onClose?.();
                     })
                     .catch((error) => {
                       setSending(false);
                       console.error(error);
-                      setError(
-                        t("Fehler beim Senden") + ": " + error?.toString()
-                      );
+                      errorMessageHandler.pushMessage({
+                        id: "failed-submit-error",
+                        text: `${t(
+                          `Fehler beim Absenden der Konfiguration`
+                        )}: ${error.message}`,
+                      });
                     });
                 }}
               >

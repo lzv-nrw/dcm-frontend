@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.15.0] - 2025-08-26
+
+### Changed
+
+- improved SectionedForm-sidebar ux
+- changed header to sticky position
+- improved logging in auth-related endpoints
+- improved session-management
+- enabled deleting templates with linked jobs
+- locked target-system input when updating a template with linked jobs
+- unlocked workspace-input when updating a template with linked jobs
+- updated error-message handling in screens and modals
+- refactored client-store actions to use common fetch-logic
+- locked username-input when updating an existing user-configuration
+
+### Added
+
+- added context menu for workspace-display
+- added initial `ContextMenu`-component to client
+- added generic message-box component and utilities for message handling
+- added abort-job button while viewing job-report
+- added mechanism to mostly prevent multiple simultaneous jobs for a single job configuration
+
+### Fixed
+
+- fixed component name for user-create-/update-modal
+- fixed base-layout of client
+- fixed positioning for "Job testen"-button
+- fixed modal titles
+- fixed spacing for body of debug-job-modal
+- fixed space and text-elements in job config modal header
+- fixed latestExec-info missing in table after updating a job configuration
+
 ## [0.8.0] - 2025-08-20
 
 ### Added

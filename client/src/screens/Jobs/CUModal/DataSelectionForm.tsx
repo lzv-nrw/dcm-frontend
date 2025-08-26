@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useContext } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
-  Alert,
   Button,
   Label,
   Checkbox,
@@ -23,6 +22,7 @@ import { credentialsValue, devMode, host } from "../../../App";
 import { FormSectionComponentProps } from "../../../components/SectionedForm";
 import Datepicker from "../../../components/Datepicker";
 import { useFormStore } from "./store";
+import { ErrorMessageContext } from "./Modal";
 
 type OAIDataSelectionFormChildren = never;
 
@@ -99,24 +99,30 @@ interface OAISetInputProps {
   sets: string[];
   url?: string;
   onChange: (sets: string[]) => void;
-  onError: React.Dispatch<React.SetStateAction<string | null>>;
 }
 
 /**
  * Helper component for the data-selection form section.
  */
-function OAISetInput({ sets, url, onChange, onError }: OAISetInputProps) {
+function OAISetInput({ sets, url, onChange }: OAISetInputProps) {
   const [setOptions, setSetOptions] = useState<OAISetInfo[] | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const errorHandler = useContext(ErrorMessageContext);
 
   // collect oai-sets
   useEffect(() => {
     setLoading(true);
     if (!url) {
-      onError(t("Das Template definiert keine Repository-URL."));
+      errorHandler?.pushMessage({
+        id: "oai-data-selection-missing-url",
+        text: t("Das Template definiert keine Repository-URL."),
+      });
       setLoading(false);
       return;
     }
+    errorHandler?.removeMessage("oai-data-selection-bad-response");
+    errorHandler?.removeMessage("oai-data-selection-error");
     fetch(
       host +
         "/api/misc/oai/sets?" +
@@ -126,19 +132,25 @@ function OAISetInput({ sets, url, onChange, onError }: OAISetInputProps) {
       .then((response) => {
         setLoading(false);
         if (!response.ok) {
-          onError(
-            `Unable to load OAI-sets for url '${url}' (${response.statusText}).`
+          response.text().then((text) =>
+            errorHandler?.pushMessage({
+              id: `oai-data-selection-bad-response`,
+              text: `${t("Abfrage der OAI-Sets fehlgeschlagen")}: ${text}`,
+            })
           );
           return;
         }
-        onError(null);
         response.json().then((json) => setSetOptions(json));
       })
       .catch((error) => {
         setLoading(false);
-        onError(error.message);
+        errorHandler?.pushMessage({
+          id: `oai-data-selection-error`,
+          text: `${t("Abfrage der OAI-Sets fehlgeschlagen")}: ${error.message}`,
+        });
       });
-  }, [url, onError]);
+    // eslint-disable-next-line
+  }, [url]);
 
   return (
     <div className="w-full max-h-64 overflow-y-auto p-2 rounded-lg shadow-md border border-gray-200">
@@ -193,7 +205,6 @@ export function OaiDataSelectionForm({
 
   const [formVisited, setFormVisited] = useState(active);
 
-  const [error, setError] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<"" | "sets" | "identifiers">(
     (dataSelection as OaiDataSelection)?.sets
       ? "sets"
@@ -224,7 +235,9 @@ export function OaiDataSelectionForm({
   // handle validation
   // * form section
   useEffect(() => {
-    if (!formVisited || active) return;
+    if (!formVisited) return;
+    if (validator.children?.dataSelection?.report?.ok === undefined && active)
+      return;
     setCurrentValidationReport({
       children: {
         dataSelection: validator.children?.dataSelection?.validate(true),
@@ -236,11 +249,6 @@ export function OaiDataSelectionForm({
   return (
     <>
       <h3 className="text-xl font-bold">{name}</h3>
-      {error ? (
-        <Alert onDismiss={() => setError(null)} color="failure">
-          {error}
-        </Alert>
-      ) : null}
       <div className="flex flex-col space-y-2">
         <Label
           className="font-semibold"
@@ -338,7 +346,6 @@ export function OaiDataSelectionForm({
             <OAISetInput
               sets={(dataSelection as OaiDataSelection)?.sets ?? []}
               url={(template?.additionalInformation as OAITemplateInfo).url}
-              onError={setError}
               onChange={(sets) => setDataSelection({ sets: sets ?? undefined })}
             />
           )}
@@ -423,14 +430,16 @@ export function HotfolderDataSelectionForm({
   }, [(dataSelection as HotfolderDataSelection)?.subdirectory]);
   // * form section
   useEffect(() => {
-    if (!formVisited || active) return;
+    if (!formVisited) return;
+    if (validator.children?.dataSelection?.report?.ok === undefined && active)
+      return;
     setCurrentValidationReport({
       children: {
         dataSelection: validator.children?.dataSelection?.validate(true),
       },
     });
     // eslint-disable-next-line
-  }, [active]);
+  }, [active, (dataSelection as HotfolderDataSelection)?.subdirectory]);
 
   return (
     <>
@@ -486,7 +495,9 @@ export function EmptyDataSelectionForm({
   // handle validation
   // * form section
   useEffect(() => {
-    if (!formVisited || active) return;
+    if (!formVisited) return;
+    if (validator.children?.dataSelection?.report?.ok === undefined && active)
+      return;
     setCurrentValidationReport({
       children: {
         dataSelection: validator.children?.dataSelection?.validate(true),
