@@ -14,6 +14,7 @@ import { FiChevronLeft } from "react-icons/fi";
 import t from "../../utils/translation";
 import { formatJobConfigStatus } from "../../utils/util";
 import { reformatDatetime } from "../../utils/dateTime";
+import { genericSort } from "../../utils/genericSort";
 import {
   JobConfig,
   JobInfo,
@@ -459,36 +460,33 @@ export default function JobDetailsScreen({
                               t(formatRecordStatus(record))
                             ).includes(searchFor.toLowerCase())
                         )
-                        .sort((a, b) => {
-                          switch (sortBy) {
-                            case "sourceSystemId":
-                              return (a.originSystemId ?? 0) <
-                                (b.originSystemId ?? 0)
-                                ? -1
-                                : 1;
-                            case "externalId":
-                              return (a.externalId ?? 0) < (b.externalId ?? 0)
-                                ? -1
-                                : 1;
-                            case "SIPId":
-                              return (a.sipId ?? 0) < (b.sipId ?? 0) ? -1 : 1;
-                            case "IEId":
-                              return (a.ieId ?? 0) < (b.ieId ?? 0) ? -1 : 1;
-                            case "processed":
-                              return (a.datetimeProcessed ?? 0) <
-                                (b.datetimeProcessed ?? 0)
-                                ? -1
-                                : 1;
-                            case "status":
-                              return (t(formatRecordStatus(a)).toLowerCase() ??
-                                0) <
-                                (t(formatRecordStatus(b)).toLowerCase() ?? 0)
-                                ? -1
-                                : 1;
-                            default:
-                              return 1;
-                          }
-                        })
+                        .sort(
+                          genericSort<RecordInfo>({
+                            field: sortBy,
+                            fallbackValue: "",
+                            caseInsensitive: true,
+                            getValue: (item) => {
+                              switch (sortBy) {
+                                case "sourceSystemId":
+                                  return item.originSystemId ?? "";
+                                case "externalId":
+                                  return item.externalId ?? "";
+                                case "SIPId":
+                                  return item.sipId ?? "";
+                                case "IEId":
+                                  return item.ieId ?? "";
+                                case "processed":
+                                  return item.datetimeProcessed ?? "";
+                                case "status":
+                                  return t(
+                                    formatRecordStatus(item)
+                                  ).toLowerCase();
+                                default:
+                                  return "";
+                              }
+                            },
+                          })
+                        )
                         .map((record) => (
                           <Table.Row key={record.reportId}>
                             {[

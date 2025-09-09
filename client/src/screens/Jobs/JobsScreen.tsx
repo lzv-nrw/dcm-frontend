@@ -5,6 +5,7 @@ import { Navigate } from "react-router";
 import t from "../../utils/translation";
 import { truncateText } from "../../utils/forms";
 import { formatJobConfigStatus } from "../../utils/util";
+import { genericSort } from "../../utils/genericSort";
 import { JobConfig } from "../../types";
 import useGlobalStore from "../../store";
 import MessageBox, {
@@ -445,46 +446,37 @@ export default function JobsScreen({ useACL = false }: JobsScreenProps) {
                             .toLowerCase()
                             .includes(searchFor.toLowerCase())
                       )
-                      .sort((a, b) => {
-                        switch (sortBy) {
-                          case "name":
-                            return (a.name ?? "-") < (b.name ?? "-") ? -1 : 1;
-                          case "template":
-                            return (a.templateId
-                              ? templateStore.templates[a.templateId].name ?? ""
-                              : "-") <
-                              (b.templateId
-                                ? templateStore.templates[b.templateId].name ??
-                                  ""
-                                : "-")
-                              ? -1
-                              : 1;
-                          case "workspace":
-                            return (a.workspaceId
-                              ? workspaceStore.workspaces[a.workspaceId].name ??
-                                ""
-                              : "-") <
-                              (b.workspaceId
-                                ? workspaceStore.workspaces[b.workspaceId]
-                                    .name ?? ""
-                                : "-")
-                              ? -1
-                              : 1;
-                          case "scheduledExec":
-                            return (a.scheduledExec ?? "-") >
-                              (b.scheduledExec ?? "")
-                              ? -1
-                              : 1;
-                          case "status":
-                            return (t(formatJobConfigStatus(a)).toLowerCase() ??
-                              0) <
-                              (t(formatJobConfigStatus(b)).toLowerCase() ?? 0)
-                              ? -1
-                              : 1;
-                          default:
-                            return 1;
-                        }
-                      })
+                      .sort(
+                        genericSort<JobConfig>({
+                          field: sortBy,
+                          fallbackValue: "-",
+                          caseInsensitive: true,
+                          getValue: (item) => {
+                            switch (sortBy) {
+                              case "name":
+                                return item.name ?? "-";
+                              case "template":
+                                return item.templateId
+                                  ? templateStore.templates[item.templateId]
+                                      ?.name ?? "-"
+                                  : "-";
+                              case "workspace":
+                                return item.workspaceId
+                                  ? workspaceStore.workspaces[item.workspaceId]
+                                      ?.name ?? "-"
+                                  : "-";
+                              case "scheduledExec":
+                                return item.scheduledExec ?? "";
+                              case "status":
+                                return t(
+                                  formatJobConfigStatus(item)
+                                ).toLowerCase();
+                              default:
+                                return "";
+                            }
+                          },
+                        })
+                      )
                       .map((config) => (
                         <Table.Row key={config.id}>
                           {tableColumns.map((item) => (

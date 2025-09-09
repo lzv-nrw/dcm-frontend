@@ -131,7 +131,7 @@ export default function LoginScreen() {
               ref={passwordRef}
               type={showPassword ? "text" : "password"}
               color={getTextInputColor({ ok: passwordOk, success_color: null })}
-              maxLength={textInputLimit.sm}
+              maxLength={textInputLimit.md}
               onFocus={() => {
                 setPasswordOk(null);
               }}

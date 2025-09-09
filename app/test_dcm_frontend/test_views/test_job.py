@@ -18,8 +18,7 @@ def _minimal_job_config():
 
 def test_post_job(
     run_service,
-    backend_app,
-    backend_port,
+    backend,
     client_w_login,
     user1_credentials,
 ):
@@ -34,7 +33,6 @@ def test_post_job(
         return jsonify(token), 201
 
     run_service(job_processor, port="8087")
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
 
     # user0 not a curator
     assert (
@@ -71,8 +69,7 @@ def test_post_job(
 
 def test_post_test_job(
     run_service,
-    backend_app,
-    backend_port,
+    backend,
     client_w_login,
     user1_credentials,
     minimal_job_config,
@@ -88,7 +85,6 @@ def test_post_test_job(
         return jsonify(token), 201
 
     run_service(job_processor, port="8087")
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
 
     # user0 not a curator
     assert (
@@ -125,15 +121,11 @@ def test_post_test_job(
 
 
 def test_get_job_info(
-    run_service,
-    backend_app,
-    backend_port,
+    backend,
     client_w_login,
     user1_credentials,
 ):
     """Test basic GET-/job/info with workspace-permission filtering."""
-
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
 
     # user0 not a curator
     assert (
@@ -169,15 +161,11 @@ def test_get_job_info(
 
 
 def test_get_job_records(
-    run_service,
-    backend_app,
-    backend_port,
+    backend,
     client_w_login,
     user1_credentials,
 ):
     """Test basic GET-/job/records with workspace-permission filtering."""
-
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
 
     # user0 not a curator
     assert (
@@ -204,13 +192,13 @@ def test_get_job_records(
 
     # ok
     response = client_w_login.get(
-            f"/api/curator/job/records?token={DemoData.token1}"
+        f"/api/curator/job/records?token={DemoData.token1}"
     )
     assert response.status_code == 200
     assert len(response.json) == 1
     assert response.json[0]["token"] == DemoData.token1
     response = client_w_login.get(
-            f"/api/curator/job/records?id={DemoData.job_config1}"
+        f"/api/curator/job/records?id={DemoData.job_config1}"
     )
     assert response.status_code == 200
     assert response.json[0]["token"] == DemoData.token1

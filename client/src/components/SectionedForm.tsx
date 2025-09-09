@@ -1,6 +1,9 @@
 import { Sidebar } from "flowbite-react";
 import { FiCheckCircle, FiAlertCircle, FiEdit } from "react-icons/fi";
 
+import t from "../utils/translation";
+import MessageBox, { MessageHandler } from "./MessageBox";
+
 export interface FormSectionComponentProps {
   name: string;
   ok?: null | boolean;
@@ -23,6 +26,7 @@ interface SectionedFormProps {
   setTab?: (tab: number) => void;
   sidebarWidth?: string;
   showEditIcon?: boolean;
+  messageHandler?: MessageHandler;
 }
 
 export default function SectionedForm({
@@ -31,6 +35,7 @@ export default function SectionedForm({
   setTab,
   sidebarWidth,
   showEditIcon = false,
+  messageHandler,
 }: SectionedFormProps) {
   return (
     <div className="h-full flex flex-row relative">
@@ -81,6 +86,14 @@ export default function SectionedForm({
         id="sectionedFormBody"
         className="px-2 py-4 w-full h-full overflow-y-auto"
       >
+        {messageHandler && (
+          <MessageBox
+            className="mb-1"
+            messages={messageHandler?.messages}
+            messageTitle={t("Ein Fehler ist aufgetreten:")}
+            onDismiss={messageHandler?.clearMessages}
+          />
+        )}
         {sections.map((sec) => (
           <div
             key={sec.tab}

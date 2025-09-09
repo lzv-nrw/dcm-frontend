@@ -16,10 +16,9 @@ def _minimal_user_config():
     }
 
 
-def test_list_users(run_service, backend_app, backend_port, client_w_login):
+def test_list_users(backend, client_w_login):
     """Test of GET /users-endpoint for the full list of users."""
 
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
     response = client_w_login.get("/api/admin/users")
 
     assert response.status_code == 200
@@ -29,15 +28,12 @@ def test_list_users(run_service, backend_app, backend_port, client_w_login):
 
 
 def test_create_user(
-    run_service,
-    backend_app,
-    backend_port,
+    backend,
     client_w_login,
     minimal_user_config,
 ):
     """Minimal test of POST /user-endpoint."""
 
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
     assert (
         client_w_login.post(
             "/api/admin/user", json=minimal_user_config
@@ -47,15 +43,11 @@ def test_create_user(
 
 
 def test_create_user_metadata(
-    run_service,
-    backend_app,
-    backend_port,
+    backend,
     client_w_login,
     minimal_user_config,
 ):
     """Test of POST /user-config-endpoint."""
-
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
 
     datetime_created = (now() + timedelta(days=1)).isoformat()
     user_id = client_w_login.post(
@@ -72,10 +64,9 @@ def test_create_user_metadata(
     assert response.json.get("datetimeCreated") != datetime_created
 
 
-def test_get_user(run_service, backend_app, backend_port, client_w_login):
+def test_get_user(backend, client_w_login):
     """Minimal test of GET /user-endpoint."""
 
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
     response = client_w_login.get("/api/admin/user?id=" + DemoData.user0)
 
     assert response.status_code == 200
@@ -83,15 +74,12 @@ def test_get_user(run_service, backend_app, backend_port, client_w_login):
 
 
 def test_get_user_info(
-    run_service,
-    backend_app,
-    backend_port,
+    backend,
     client_w_login,
     client_w_login_user1,
 ):
     """Test of GET /user-info-endpoint."""
 
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
     response_user0 = client_w_login.get(
         "/api/admin/user-info?id=" + DemoData.user0
     )
@@ -112,15 +100,11 @@ def test_get_user_info(
 
 
 def test_modify_user(
-    run_service,
-    backend_app,
-    backend_port,
+    backend,
     client_w_login,
     minimal_user_config,
 ):
     """Minimal test of PUT /user-endpoint."""
-
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
 
     # change user1 (no groups -> ok since no admin before)
     assert (
@@ -164,15 +148,11 @@ def test_modify_user(
 
 
 def test_modify_user_metadata(
-    run_service,
-    backend_app,
-    backend_port,
+    backend,
     client_w_login,
     minimal_user_config,
 ):
     """Test of PUT /user-config-endpoint."""
-
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
 
     datetime_modified = (now() + timedelta(days=1)).isoformat()
     client_w_login.put(
@@ -191,14 +171,10 @@ def test_modify_user_metadata(
 
 
 def test_delete_user(
-    run_service,
-    backend_app,
-    backend_port,
+    backend,
     client_w_login,
 ):
     """Test of DELETE /user-endpoint."""
-
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
 
     # missing 'id' argument
     assert (

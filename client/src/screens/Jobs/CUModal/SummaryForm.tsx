@@ -116,10 +116,8 @@ export function SummaryForm({ name }: FormSectionComponentProps) {
 
   return (
     <div>
-      <div className="flex justify-between">
-        <h3 className="text-xl font-bold">{name}</h3>
+      <div className="flex justify-end sticky top-0 px-6">
         <Button
-          className="absolute right-6"
           disabled={testJobRunning}
           onClick={() => {
             if (template === undefined) {
@@ -186,6 +184,10 @@ export function SummaryForm({ name }: FormSectionComponentProps) {
             t("Job testen")
           )}
         </Button>
+      </div>
+
+      <div className="flex justify-between">
+        <h3 className="text-xl font-bold">{name}</h3>
       </div>
       <div className="flex flex-col space-y-2 max-h-80 w-full">
         <div className="max-h-full max-w-full">

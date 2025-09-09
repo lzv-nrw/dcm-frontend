@@ -2,14 +2,15 @@
 
 This repository contains the definitions for a Flask app (subdirectory `app`) and React client (subdirectory `client`) which are used as web-frontend for the `Digital Curation Manager`.
 The Flask app
+
 * provides means to handle authorization,
 * acts as a gateway to a [`DCM Backend`](https://github.com/lzv-nrw/dcm-backend)-app, and
 * serves the static web-client.
 
 The contents of this repository are part of the [`Digital Curation Manager`](https://github.com/lzv-nrw/digital-curation-manager).
 
-
 ## Local install
+
 Make sure to include the extra-index-url `https://zivgitlab.uni-muenster.de/api/v4/projects/9020/packages/pypi/simple` in your [pip-configuration](https://pip.pypa.io/en/stable/cli/pip_install/#finding-packages) to enable an automated install of all dependencies.
 Using a virtual environment is recommended.
 
@@ -67,8 +68,10 @@ This automatically enables the npm-auto-refresh for changes in the client-code.
 1. By default the server will listen on `localhost:3000`.
 
 ## Build
+
 In a production environment, the static client is intended to be served via the Flask app.
 To perform a build of the corresponding python package, follow these steps:
+
 1. Change into the client directory with `cd client`.
 1. Install dependencies with `npm install`.
 1. Run a build of client with `npm run build`.
@@ -111,7 +114,19 @@ There are some advanced options for configuration available via the `AppConfig`-
 ### React Client (build variables only)
 
 * `REACT_APP_API_URL` [DEFAULT ""]: base url for backend;
-   when running the `npm start`-script, the variable is automatically set to `http://localhost:5000`
+  when running the `npm start`-script, the variable is automatically set to `http://localhost:5000`
+
+### Dependency Management
+
+To ensure consistent behavior across environments and prevent breaking changes due to automatic updates, we pin the versions of certain core dependencies:
+
+* `flowbite-react`
+* `tailwindcss`
+
+These libraries are sensitive to version changes that may affect UI layout or component behavior. Therefore:
+
+* Their versions in `package.json` are **fixed** (without `^` or `~`)
+* Updates should only be made **manually** and **with UI testing**
 
 # Contributors
 * Sven Haubold

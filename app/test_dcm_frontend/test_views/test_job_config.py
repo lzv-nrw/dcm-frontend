@@ -17,9 +17,7 @@ def _minimal_job_config():
 
 
 def test_list_job_configs(
-    run_service,
-    backend_app,
-    backend_port,
+    backend,
     client_w_login,
     user1_credentials,
     user2_credentials,
@@ -28,8 +26,6 @@ def test_list_job_configs(
     """
     Test of GET /job-configs-endpoint for the filtered list of job_configs.
     """
-
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
 
     # user0
     assert client_w_login.get("/api/curator/job-configs").status_code == 403
@@ -75,31 +71,26 @@ def test_list_job_configs(
 
 @pytest.mark.parametrize(
     ("template_id", "expected_status_code"),
-    ([
-        (  # job in workspace1 (accessible)
-            DemoData.template1, 200
-        ),
-        (  # job in workspace2 (inaccessible)
-            DemoData.template2, 403
-        ),
-        (  # job not associated with a workspace (inaccessible)
-            DemoData.template3, 403
-        ),
-    ]),
-    ids=["accessible workspace", "inaccessible workspace", "no workspace"]
+    (
+        [
+            (DemoData.template1, 200),  # job in workspace1 (accessible)
+            (DemoData.template2, 403),  # job in workspace2 (inaccessible)
+            (  # job not associated with a workspace (inaccessible)
+                DemoData.template3,
+                403,
+            ),
+        ]
+    ),
+    ids=["accessible workspace", "inaccessible workspace", "no workspace"],
 )
 def test_create_job_config(
-    run_service,
-    backend_app,
-    backend_port,
+    backend,
     client_w_login_user1,
     minimal_job_config,
     template_id,
     expected_status_code,
 ):
     """Test of POST /job-config-endpoint."""
-
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
 
     # user1
     assert (
@@ -112,15 +103,11 @@ def test_create_job_config(
 
 
 def test_create_job_config_metadata(
-    run_service,
-    backend_app,
-    backend_port,
+    backend,
     client_w_login_user1,
     minimal_job_config,
 ):
     """Test of POST /job-config-endpoint."""
-
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
 
     datetime_created = (now() + timedelta(days=1)).isoformat()
     job_config_id = client_w_login_user1.post(
@@ -141,26 +128,22 @@ def test_create_job_config_metadata(
 
 @pytest.mark.parametrize(
     ("job_config_id", "expected_status_code"),
-    (pytest_args := [
-        (  # job in workspace1 (accessible)
-            DemoData.job_config1, 200
-        ),
-        (  # job in workspace2 (inaccessible)
-            DemoData.job_config2, 403
-        ),
-        (  # job not associated with a workspace (inaccessible)
-            DemoData.job_config3, 403
-        ),
-    ]),
-    ids=["accessible workspace", "inaccessible workspace", "no workspace"]
+    (
+        pytest_args := [
+            (DemoData.job_config1, 200),  # job in workspace1 (accessible)
+            (DemoData.job_config2, 403),  # job in workspace2 (inaccessible)
+            (  # job not associated with a workspace (inaccessible)
+                DemoData.job_config3,
+                403,
+            ),
+        ]
+    ),
+    ids=["accessible workspace", "inaccessible workspace", "no workspace"],
 )
 def test_get_job_config(
-    run_service, backend_app, backend_port, client_w_login_user1,
-    job_config_id, expected_status_code
+    backend, client_w_login_user1, job_config_id, expected_status_code
 ):
     """Test of GET /job-config-endpoint for a 'curator'."""
-
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
 
     # user1, curator in workspace1
     response = client_w_login_user1.get(
@@ -173,23 +156,29 @@ def test_get_job_config(
 
 @pytest.mark.parametrize(
     ("job_config_id", "template_id", "expected_status_code"),
-    ([
-        (  # job in workspace1 (accessible)
-            DemoData.job_config1, DemoData.template1, 200
-        ),
-        (  # job in workspace2 (inaccessible)
-            DemoData.job_config2, DemoData.template2, 403
-        ),
-        (  # job not associated with a workspace (inaccessible)
-            DemoData.job_config3, DemoData.template3, 403
-        ),
-    ]),
-    ids=["correct workspace", "wrong workspace", "no workspace"]
+    (
+        [
+            (  # job in workspace1 (accessible)
+                DemoData.job_config1,
+                DemoData.template1,
+                200,
+            ),
+            (  # job in workspace2 (inaccessible)
+                DemoData.job_config2,
+                DemoData.template2,
+                403,
+            ),
+            (  # job not associated with a workspace (inaccessible)
+                DemoData.job_config3,
+                DemoData.template3,
+                403,
+            ),
+        ]
+    ),
+    ids=["correct workspace", "wrong workspace", "no workspace"],
 )
 def test_modify_job_config(
-    run_service,
-    backend_app,
-    backend_port,
+    backend,
     client_w_login_user1,
     minimal_job_config,
     job_config_id,
@@ -197,8 +186,6 @@ def test_modify_job_config(
     expected_status_code,
 ):
     """Test of PUT /job-config-endpoint."""
-
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
 
     new_job_config = minimal_job_config | {
         "id": job_config_id,
@@ -222,20 +209,17 @@ def test_modify_job_config(
         assert response.status_code == 200
         assert all(
             v == response.json[k]
-            for k, v in new_job_config.items() if k not in ["last_modified"]
+            for k, v in new_job_config.items()
+            if k not in ["last_modified"]
         )
 
 
 def test_modify_job_config_metadata(
-    run_service,
-    backend_app,
-    backend_port,
+    backend,
     client_w_login_user1,
     minimal_job_config,
 ):
     """Test of PUT /job-config-endpoint."""
-
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
 
     datetime_modified = (now() + timedelta(days=1)).isoformat()
     client_w_login_user1.put(
@@ -257,30 +241,22 @@ def test_modify_job_config_metadata(
 
 @pytest.mark.parametrize(
     ("job_config_id", "expected_status_code"),
-    (pytest_args := [
-        (  # job in workspace1 (accessible)
-            DemoData.job_config1, 200
-        ),
-        (  # job in workspace2 (inaccessible)
-            DemoData.job_config2, 403
-        ),
-        (  # job not associated with a workspace (inaccessible)
-            DemoData.job_config3, 403
-        ),
-    ]),
-    ids=["accessible workspace", "inaccessible workspace", "no workspace"]
+    (
+        pytest_args := [
+            (DemoData.job_config1, 200),  # job in workspace1 (accessible)
+            (DemoData.job_config2, 403),  # job in workspace2 (inaccessible)
+            (  # job not associated with a workspace (inaccessible)
+                DemoData.job_config3,
+                403,
+            ),
+        ]
+    ),
+    ids=["accessible workspace", "inaccessible workspace", "no workspace"],
 )
 def test_delete_job_config(
-    run_service,
-    backend_app,
-    backend_port,
-    client_w_login_user1,
-    job_config_id,
-    expected_status_code
+    backend, client_w_login_user1, job_config_id, expected_status_code
 ):
     """Test of DELETE /job-config-endpoint."""
-
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
 
     if expected_status_code == 200:
         assert (

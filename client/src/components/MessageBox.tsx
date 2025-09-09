@@ -74,20 +74,26 @@ export default function MessageBox({
   return (
     <>
       {reducedMessages.length > 0 && (
-        <Alert className={className} color={color} onDismiss={onDismiss}>
-          <div className="flex flex-col space-y-2">
-            <span>{messageTitle}</span>
-            {reducedMessages.length === 1 && (
-              <span>{reducedMessages[0].text}</span>
-            )}
-            {reducedMessages.length > 1 && (
-              <ul className="pl-5 list-disc">
-                {reducedMessages.map((message, index) => (
-                  <li key={index}>{message.text}</li>
-                ))}
-              </ul>
-            )}
-          </div>
+        <Alert
+          className={className}
+          color={color}
+          onDismiss={onDismiss}
+          additionalContent={
+            <div className="flex flex-col space-y-2">
+              {reducedMessages.length === 1 && (
+                <span>{reducedMessages[0].text}</span>
+              )}
+              {reducedMessages.length > 1 && (
+                <ul className="pl-5 list-disc">
+                  {reducedMessages.map((message, index) => (
+                    <li key={index}>{message.text}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          }
+        >
+          <span className="font-semibold">{messageTitle}</span>
         </Alert>
       )}
     </>

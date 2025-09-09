@@ -3,12 +3,8 @@
 from dcm_backend.util import DemoData
 
 
-def test_login(
-    run_service, backend_app, backend_port, client, user0_credentials
-):
+def test_login(backend, client, user0_credentials):
     """Minimal test of /login-endpoint."""
-
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
 
     # check access before login
     assert client.get("/api/auth/login").status_code == 401
@@ -22,12 +18,8 @@ def test_login(
     assert client.get("/api/auth/login").status_code == 200
 
 
-def test_login_unknown_user(
-    run_service, backend_app, backend_port, client
-):
+def test_login_unknown_user(backend, client):
     """Test of /login-endpoint for an unknown user."""
-
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
 
     # make request for login
     response = client.post(
@@ -38,16 +30,12 @@ def test_login_unknown_user(
 
 
 def test_login_and_permissions_admin(
-    run_service,
-    backend_app,
-    backend_port,
+    backend,
     client,
     user0_credentials,
     testing_config,
 ):
     """Minimal test of /login-endpoint."""
-
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
 
     # login
     client.post("/api/auth/login", json=user0_credentials)
@@ -68,16 +56,12 @@ def test_login_and_permissions_admin(
 
 
 def test_login_and_permissions_curator(
-    run_service,
-    backend_app,
-    backend_port,
+    backend,
     client,
     user1_credentials,
     testing_config,
 ):
     """Minimal test of /login-endpoint."""
-
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
 
     # login
     client.post("/api/auth/login", json=user1_credentials)
@@ -98,15 +82,11 @@ def test_login_and_permissions_curator(
 
 
 def test_permissions_without_login(
-    run_service,
-    backend_app,
-    backend_port,
+    backend,
     client,
     testing_config,
 ):
     """Test decorator-order for permissions with missing login."""
-
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
 
     assert (
         client.get(
@@ -120,12 +100,8 @@ def test_permissions_without_login(
 # internal "_cookies"-property of test client (apparently the only
 # convenient way of preserving cookies at the time of writing
 # (the "cookie_jar" property causes an error))
-def test_login_logout_multiple_sessions(
-    run_service, backend_app, backend_port, client, user0_credentials
-):
+def test_login_logout_multiple_sessions(backend, client, user0_credentials):
     """Test of /login- and /logout-endpoints using multiple sessions."""
-
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
 
     session_cookie_scope = ("localhost", "/", "session")
     # first session

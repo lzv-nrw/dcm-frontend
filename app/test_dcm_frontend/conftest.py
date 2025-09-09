@@ -66,52 +66,42 @@ def _client(testing_config):
 
 @pytest.fixture(name="client_w_login")
 def _client_w_login(
-    client, user0_credentials, run_service, backend_app, backend_port
+    client, user0_credentials, backend
 ):
     """
     Returns test_client with login for 'user0_credentials'.
     """
-    # temporarily run backend for login, then kill before returning
-    p = run_service(app=backend_app, port=backend_port, probing_path="ready")
 
     assert (
         client.post("/api/auth/login", json=user0_credentials).status_code
         == 200
     )
 
-    p.kill()
-    p.join()
-
     return client
 
 
 @pytest.fixture(name="user0_credentials")
-def _user0_credentials():
+def _user0_credentials(backend_config):
     return {
         "username": "admin",
         "password": md5(
-            util.DemoData.admin_password.encode(encoding="utf-8")
+            backend_config.DB_DEMO_ADMIN_PW.encode(encoding="utf-8")
         ).hexdigest(),
     }
 
 
 @pytest.fixture(name="client_w_login_user1")
 def _client_w_login_user1(
-    client, user1_credentials, run_service, backend_app, backend_port
+    client, user1_credentials, backend
 ):
     """
     Returns test_client with login for 'user1_credentials'.
     """
-    # temporarily run backend for login, then kill before returning
-    p = run_service(app=backend_app, port=backend_port, probing_path="ready")
 
     assert (
         client.post("/api/auth/login", json=user1_credentials).status_code
         == 200
     )
-
-    p.kill()
-    p.join()
 
     return client
 
@@ -146,24 +136,33 @@ def _backend_port():
     return "8086"
 
 
-@pytest.fixture(name="backend_app")
-def _backend_app(fixtures):
+@pytest.fixture(name="backend_config")
+def _backend_config(fixtures):
 
     class Config(BackendConfig):
         ROSETTA_AUTH_FILE = fixtures / ".rosetta/rosetta_auth"
         TESTING = True
         DB_LOAD_SCHEMA = True
         DB_GENERATE_DEMO = True
-        ORCHESTRATION_AT_STARTUP = False
+        DB_DEMO_ADMIN_PW = "admin"
+        ORCHESTRA_AT_STARTUP = False
         SCHEDULING_AT_STARTUP = False
 
         DB_ADAPTER_STARTUP_IMMEDIATELY = True
-        ORCHESTRATION_ABORT_NOTIFICATIONS_STARTUP_INTERVAL = 0.01
         DB_ADAPTER_STARTUP_INTERVAL = 0.01
         DB_INIT_STARTUP_INTERVAL = 0.01
         SCHEDULER_INIT_STARTUP_INTERVAL = 0.01
 
-    return backend_factory(
-        Config(),
-        as_process=True,
+    return Config
+
+
+@pytest.fixture(name="backend")
+def _backend(run_service, backend_config, backend_port):
+
+    p = run_service(
+        from_factory=lambda: backend_factory(backend_config()),
+        port=backend_port,
+        probing_path="ready",
     )
+
+    return p

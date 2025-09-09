@@ -9,7 +9,7 @@ import useGlobalStore from "../../../store";
 import { credentialsValue, devMode, host } from "../../../App";
 import Modal from "../../../components/Modal";
 import SectionedForm from "../../../components/SectionedForm";
-import MessageBox, {
+import {
   MessageHandler,
   useMessageHandler,
 } from "../../../components/MessageBox";
@@ -130,12 +130,6 @@ export default function CUModal({ show, onClose }: CUModalProps) {
       </Modal.Header>
       <Modal.Body>
         <ErrorMessageContext.Provider value={errorMessageHandler}>
-          <MessageBox
-            className="my-1"
-            messages={errorMessageHandler.messages}
-            messageTitle={t("Ein Fehler ist aufgetreten:")}
-            onDismiss={errorMessageHandler.clearMessages}
-          />
           <SectionedForm
             sections={[
               {
@@ -160,6 +154,7 @@ export default function CUModal({ show, onClose }: CUModalProps) {
             tab={tab}
             setTab={setTab}
             sidebarWidth="w-36"
+            messageHandler={errorMessageHandler}
           />
         </ErrorMessageContext.Provider>
       </Modal.Body>

@@ -17,21 +17,19 @@ def _minimal_template_config():
     }
 
 
-def test_list_templates(
-    run_service, backend_app, backend_port, client_w_login, user1_credentials
-):
+def test_list_templates(backend, client_w_login, user1_credentials):
     """Test of GET /templates-endpoint for the full list of templates."""
-
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
 
     # user0
     response = client_w_login.get("/api/admin/templates")
     assert response.status_code == 200
-    assert sorted(response.json) == sorted([
-        DemoData.template1,
-        DemoData.template2,
-        DemoData.template3,
-    ])
+    assert sorted(response.json) == sorted(
+        [
+            DemoData.template1,
+            DemoData.template2,
+            DemoData.template3,
+        ]
+    )
 
     # user1
     client_w_login.get("/api/auth/logout")
@@ -42,16 +40,12 @@ def test_list_templates(
 
 
 def test_create_template(
-    run_service,
-    backend_app,
-    backend_port,
+    backend,
     client_w_login,
     minimal_template_config,
     user1_credentials,
 ):
     """Minimal test of POST /template-endpoint."""
-
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
 
     # user0
     response = client_w_login.post(
@@ -60,38 +54,49 @@ def test_create_template(
     )
     assert response.status_code == 200
     assert "id" in response.json
-    assert client_w_login.post(
-        "/api/admin/template",
-        json=minimal_template_config | {"workspaceId": DemoData.workspace1},
-    ).status_code == 200
+    assert (
+        client_w_login.post(
+            "/api/admin/template",
+            json=minimal_template_config
+            | {"workspaceId": DemoData.workspace1},
+        ).status_code
+        == 200
+    )
 
     # user1
     client_w_login.get("/api/auth/logout")
     client_w_login.post("/api/auth/login", json=user1_credentials)
-    assert client_w_login.post(
-        "/api/admin/template",
-        json=minimal_template_config,
-    ).status_code == 403
-    assert client_w_login.post(
-        "/api/admin/template",
-        json=minimal_template_config | {"workspaceId": DemoData.workspace1},
-    ).status_code == 200
-    assert client_w_login.post(
-        "/api/admin/template",
-        json=minimal_template_config | {"workspaceId": DemoData.workspace2},
-    ).status_code == 403
+    assert (
+        client_w_login.post(
+            "/api/admin/template",
+            json=minimal_template_config,
+        ).status_code
+        == 403
+    )
+    assert (
+        client_w_login.post(
+            "/api/admin/template",
+            json=minimal_template_config
+            | {"workspaceId": DemoData.workspace1},
+        ).status_code
+        == 200
+    )
+    assert (
+        client_w_login.post(
+            "/api/admin/template",
+            json=minimal_template_config
+            | {"workspaceId": DemoData.workspace2},
+        ).status_code
+        == 403
+    )
 
 
 def test_create_template_metadata(
-    run_service,
-    backend_app,
-    backend_port,
+    backend,
     client_w_login,
     minimal_template_config,
 ):
     """Test of POST /template-config-endpoint."""
-
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
 
     datetime_created = (now() + timedelta(days=1)).isoformat()
     template_id = client_w_login.post(
@@ -103,19 +108,13 @@ def test_create_template_metadata(
         },
     ).json.get("id")
 
-    response = client_w_login.get(
-        "/api/admin/template?id=" + template_id
-    )
+    response = client_w_login.get("/api/admin/template?id=" + template_id)
     assert response.json.get("userCreated") == DemoData.user0
     assert response.json.get("datetimeCreated") != datetime_created
 
 
-def test_get_template(
-    run_service, backend_app, backend_port, client_w_login, user1_credentials
-):
+def test_get_template(backend, client_w_login, user1_credentials):
     """Minimal test of GET /template-endpoint."""
-
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
 
     # user0
     response = client_w_login.get(
@@ -123,12 +122,18 @@ def test_get_template(
     )
     assert response.status_code == 200
     assert response.json.get("id") == DemoData.template1
-    assert client_w_login.get(
-        "/api/admin/template?id=" + DemoData.template2
-    ).status_code == 200
-    assert client_w_login.get(
-        "/api/admin/template?id=" + DemoData.template3
-    ).status_code == 200
+    assert (
+        client_w_login.get(
+            "/api/admin/template?id=" + DemoData.template2
+        ).status_code
+        == 200
+    )
+    assert (
+        client_w_login.get(
+            "/api/admin/template?id=" + DemoData.template3
+        ).status_code
+        == 200
+    )
 
     # user1
     client_w_login.get("/api/auth/logout")
@@ -154,15 +159,11 @@ def test_get_template(
 
 
 def test_get_template_linked_jobs(
-    run_service,
-    backend_app,
-    backend_port,
+    backend,
     client_w_login,
     minimal_template_config,
 ):
     """Minimal test of GET /template-endpoint."""
-
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
 
     # template 1
     template1 = client_w_login.get(
@@ -182,16 +183,12 @@ def test_get_template_linked_jobs(
 
 
 def test_modify_template(
-    run_service,
-    backend_app,
-    backend_port,
+    backend,
     client_w_login,
     minimal_template_config,
     user1_credentials,
 ):
     """Minimal test of PUT /template-endpoint."""
-
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
 
     # user0
     assert (  # remove workspace
@@ -255,15 +252,11 @@ def test_modify_template(
 
 
 def test_modify_template_metadata(
-    run_service,
-    backend_app,
-    backend_port,
+    backend,
     client_w_login,
     minimal_template_config,
 ):
     """Test of PUT /template-config-endpoint."""
-
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
 
     datetime_modified = (now() + timedelta(days=1)).isoformat()
     client_w_login.put(
@@ -283,30 +276,18 @@ def test_modify_template_metadata(
     assert response.json.get("datetimeModified") != datetime_modified
 
 
-def test_get_template_import_sources(
-    run_service, backend_app, backend_port, client_w_login
-):
+def test_get_template_import_sources(backend, client_w_login):
     """
     Test of GET /template/hotfolder-sources-endpoint.
     """
-
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
 
     response = client_w_login.get("/api/admin/template/hotfolder-sources")
     assert response.status_code == 200
     assert len(response.json) == 2
 
 
-def test_delete_template(
-    run_service,
-    backend_app,
-    backend_port,
-    client_w_login,
-    minimal_template_config
-):
+def test_delete_template(backend, client_w_login, minimal_template_config):
     """Test of DELETE /template-endpoint."""
-
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
 
     # create template that can be deleted
     template_id = client_w_login.post(
@@ -315,17 +296,11 @@ def test_delete_template(
     ).json.get("id")
 
     # check - delete -check
-    assert (
-        template_id
-        in client_w_login.get("/api/admin/templates").json
-    )
+    assert template_id in client_w_login.get("/api/admin/templates").json
     assert (
         client_w_login.delete(
             f"/api/admin/template?id={template_id}"
         ).status_code
         == 200
     )
-    assert (
-        template_id
-        not in client_w_login.get("/api/admin/templates").json
-    )
+    assert template_id not in client_w_login.get("/api/admin/templates").json

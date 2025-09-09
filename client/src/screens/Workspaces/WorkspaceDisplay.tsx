@@ -31,6 +31,7 @@ export default function WorkspaceDisplay({
   const [showConfirmDeleteModal, setShowConfirmDeleteModal] = useState(false);
   const [openAddUserModal, setOpenAddUserModal] = useState(false);
   const [openAddTemplate, setOpenAddTemplate] = useState(false);
+  const [openContextMenu, setOpenContextMenu] = useState(false);
   const groups = useGlobalStore((state) => state.permission.groups);
   const users = useGlobalStore((state) => state.user.users);
   const fetchUser = useGlobalStore((state) => state.user.fetchUser);
@@ -196,6 +197,8 @@ export default function WorkspaceDisplay({
               {loading && <Spinner className="mx-2" size="xs" />}
             </h3>
             <ContextMenu
+              open={openContextMenu}
+              onOpenChange={setOpenContextMenu}
               items={[
                 { children: t("Umbenennen"), onClick: () => alert("tbd") },
                 {
@@ -214,7 +217,10 @@ export default function WorkspaceDisplay({
                 },
               ]}
             >
-              <div className="flex items-center justify-center h-8 w-8 rounded-full border border-gray-200 hover:cursor-pointer hover:bg-gray-100">
+              <div
+                className="flex items-center justify-center h-8 w-8 rounded-full border border-gray-200 hover:cursor-pointer hover:bg-gray-100"
+                onClick={() => setOpenContextMenu(true)}
+              >
                 <FiMoreHorizontal size="18" />
               </div>
             </ContextMenu>

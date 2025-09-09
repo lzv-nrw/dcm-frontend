@@ -1,3 +1,4 @@
+import { Dispatch, SetStateAction } from "react";
 import { Popover } from "flowbite-react";
 
 interface ContextMenuItemProps {
@@ -6,24 +7,33 @@ interface ContextMenuItemProps {
 }
 
 interface ContextMenuProps {
+  open: boolean;
   className?: string;
   children: React.ReactNode;
   items: ContextMenuItemProps[];
+  onOpenChange: Dispatch<SetStateAction<boolean>>;
 }
 
 export default function ContextMenu({
+  open,
   className = "",
   children,
   items,
+  onOpenChange,
 }: ContextMenuProps) {
   return (
     <Popover
+      open={open}
+      onOpenChange={onOpenChange}
       aria-labelledby="context-menu"
       content={
         <div className={`min-w-32 flex flex-col select-none ${className}`}>
           {items.map((item, index) => (
             <div
-              onClick={item.onClick}
+              onClick={() => {
+                item.onClick?.();
+                onOpenChange(false);
+              }}
               key={index}
               className={
                 "px-4 py-2" +

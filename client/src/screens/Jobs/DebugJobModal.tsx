@@ -93,7 +93,7 @@ export default function DebugJobModal({
   }, [initialToken, token]);
 
   useEffect(() => {
-    if (!token || token?.length !== 36) return;
+    if (!show || !token || token?.length !== 36) return;
     const interval = setInterval(() => {
       if (["aborted", "completed"].includes(jobInfos[token]?.status ?? "")) {
         setError(null);
@@ -110,7 +110,7 @@ export default function DebugJobModal({
         });
     }, 1000);
     return () => clearInterval(interval);
-  }, [token, jobInfos, loadingAbort, fetchJobInfo]);
+  }, [show, token, jobInfos, loadingAbort, fetchJobInfo]);
 
   function getTimelinePointTheme(ok?: boolean): any {
     let tc, bgc;

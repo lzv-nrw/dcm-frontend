@@ -18,15 +18,8 @@ def _config_sdk(backend_port):
     )
 
 
-def test_call_backend_ok(
-    run_service,
-    backend_app,
-    backend_port,
-    config_sdk: dcm_backend_sdk.ConfigApi,
-):
+def test_call_backend_ok(backend, config_sdk: dcm_backend_sdk.ConfigApi):
     """Minimal test for `call_backend`."""
-
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
 
     result = util.call_backend(endpoint=config_sdk.list_users_with_http_info)
 
@@ -54,13 +47,10 @@ def test_call_backend_no_connection(config_sdk: dcm_backend_sdk):
 
 def test_call_backend_timeout(
     run_service,
-    backend_app,
-    backend_port,
+    backend,
     config_sdk: dcm_backend_sdk.ConfigApi,
 ):
     """Test `call_backend` when backend times out."""
-
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
 
     result = util.call_backend(
         endpoint=config_sdk.list_users_with_http_info,

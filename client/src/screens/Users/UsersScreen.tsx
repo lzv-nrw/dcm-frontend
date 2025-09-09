@@ -4,6 +4,7 @@ import { Navigate } from "react-router";
 
 import t from "../../utils/translation";
 import { truncateText } from "../../utils/forms";
+import { genericSort } from "../../utils/genericSort";
 import { User, GroupMembership } from "../../types";
 import useGlobalStore from "../../store";
 import MessageBox, {
@@ -330,32 +331,13 @@ export default function UsersScreen({ useACL = false }: UsersScreenProps) {
                               .toLowerCase()
                               .includes(searchFor.toLowerCase())
                       )
-                      .sort((a, b) => {
-                        switch (sortBy) {
-                          case "lastname":
-                            return (a.lastname ?? "-").toLowerCase() <
-                              (b.lastname ?? "-").toLowerCase()
-                              ? -1
-                              : 1;
-                          case "firstname":
-                            return (a.firstname ?? "-").toLowerCase() <
-                              (b.firstname ?? "-").toLowerCase()
-                              ? -1
-                              : 1;
-                          case "username":
-                            return (a.username ?? "-").toLowerCase() <
-                              (b.username ?? "-").toLowerCase()
-                              ? -1
-                              : 1;
-                          case "email":
-                            return (a.email ?? "-").toLowerCase() <
-                              (b.email ?? "-").toLowerCase()
-                              ? -1
-                              : 1;
-                          default:
-                            return 1;
-                        }
-                      })
+                      .sort(
+                        genericSort({
+                          field: sortBy,
+                          fallbackValue: "-",
+                          caseInsensitive: true,
+                        })
+                      )
                       .map((user) => (
                         <Table.Row key={user.username}>
                           {tableColumns.map((item) => (

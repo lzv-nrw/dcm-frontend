@@ -4,14 +4,11 @@ from dcm_backend.util import DemoData
 
 
 def test_get_user_config(
-    run_service,
-    backend_app,
-    backend_port,
+    backend,
     client_w_login,
 ):
     """Minimal test of GET-/config-endpoint."""
 
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
     response = client_w_login.get("/api/user/config")
 
     assert response.status_code == 200
@@ -52,14 +49,10 @@ def test_get_permission_table(client_w_login):
 
 
 def test_put_widgets(
-    run_service,
-    backend_app,
-    backend_port,
+    backend,
     client_w_login,
 ):
     """Minimal test of PUT-/widgets-endpoint."""
-
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
 
     # get current configuration
     current_user_config = client_w_login.get("/api/user/config").json

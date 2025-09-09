@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.20.0] - 2025-09-09
+
+### Changed
+
+- migrated to dcm-common v4
+- migrated to backend API v3
+- pinned versions of `flowbite-react` and `tailwindcss` to prevent unwanted updates and ensure consistency
+- documented version pinning of `flowbite-react` and `tailwindcss` in README for consistent dependency management
+- moved message-box from modal wizards to SectionedForm
+
+### Added
+
+- added generic comparator function for consistent sorting
+
+### Removed
+
+- removed unused `web-vitals` dependency
+
+### Fixed
+
+- fixed cleared interval timer when closing `DebugJobModal`
+- fixed overly restrictive password input length
+- fixed workspace context menu not closing on item select
+- fixed layout of message-box component
+
 ## [0.15.0] - 2025-08-26
 
 ### Changed

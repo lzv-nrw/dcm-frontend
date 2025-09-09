@@ -140,7 +140,7 @@ def app_factory(config: AppConfig):
             print(f"Deleted expired session '{session_id}'.")
 
     if config.ALLOW_CORS:
-        extensions.cors(
+        app.extensions["cors"] = extensions.cors_loader(
             app,
             kwargs={
                 "resources": {r"/*": {"origins": config.DEV_CLIENT_URL}},

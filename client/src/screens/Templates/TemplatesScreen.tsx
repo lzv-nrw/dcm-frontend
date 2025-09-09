@@ -4,6 +4,7 @@ import { Navigate } from "react-router";
 
 import t from "../../utils/translation";
 import { truncateText } from "../../utils/forms";
+import { genericSort } from "../../utils/genericSort";
 import { HotfolderTemplateInfo, Template } from "../../types";
 import useGlobalStore from "../../store";
 import MessageBox, {
@@ -274,26 +275,13 @@ export default function TemplatesScreen({
                         .toLowerCase()
                         .includes(searchFor.toLowerCase())
                 )
-                .sort((a, b) => {
-                  const aValue = a[sortBy] ?? "";
-                  const bValue = b[sortBy] ?? "";
-
-                  if (
-                    typeof aValue === "string" &&
-                    typeof bValue === "string"
-                  ) {
-                    return aValue.localeCompare(bValue);
-                  }
-
-                  if (
-                    typeof aValue === "number" &&
-                    typeof bValue === "number"
-                  ) {
-                    return aValue - bValue;
-                  }
-
-                  return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
-                })
+                .sort(
+                  genericSort({
+                    field: sortBy,
+                    fallbackValue: "",
+                    caseInsensitive: true,
+                  })
+                )
                 .map((template) => (
                   <TemplateItem key={template.id} template={template} />
                 ))}

@@ -15,11 +15,9 @@ def _minimal_workspace_config():
 
 
 def test_list_workspaces(
-    run_service, backend_app, backend_port, client_w_login, user1_credentials
+    backend, client_w_login, user1_credentials
 ):
     """Test of GET /workspaces-endpoint."""
-
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
 
     # user0
     response = client_w_login.get("/api/admin/workspaces")
@@ -35,15 +33,12 @@ def test_list_workspaces(
 
 
 def test_create_workspace(
-    run_service,
-    backend_app,
-    backend_port,
+    backend,
     client_w_login,
     minimal_workspace_config,
 ):
     """Minimal test of POST /workspace-endpoint."""
 
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
     response = client_w_login.post(
         "/api/admin/workspace",
         json=minimal_workspace_config,
@@ -53,15 +48,11 @@ def test_create_workspace(
 
 
 def test_create_workspace_metadata(
-    run_service,
-    backend_app,
-    backend_port,
+    backend,
     client_w_login,
     minimal_workspace_config,
 ):
     """Test of POST /workspace-config-endpoint."""
-
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
 
     datetime_created = (now() + timedelta(days=1)).isoformat()
     workspace_id = client_w_login.post(
@@ -81,11 +72,9 @@ def test_create_workspace_metadata(
 
 
 def test_get_workspace(
-    run_service, backend_app, backend_port, client_w_login, user1_credentials
+    backend, client_w_login, user1_credentials
 ):
     """Minimal test of GET /workspace-endpoint."""
-
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
 
     # user0
     response = client_w_login.get(
@@ -115,16 +104,12 @@ def test_get_workspace(
 
 
 def test_modify_workspace(
-    run_service,
-    backend_app,
-    backend_port,
+    backend,
     client_w_login,
     minimal_workspace_config,
     user1_credentials,
 ):
     """Minimal test of PUT /workspace-endpoint."""
-
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
 
     # user0
     assert (
@@ -163,15 +148,11 @@ def test_modify_workspace(
 
 
 def test_modify_workspace_metadata(
-    run_service,
-    backend_app,
-    backend_port,
+    backend,
     client_w_login,
     minimal_workspace_config,
 ):
     """Test of PUT /workspace-config-endpoint."""
-
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
 
     datetime_modified = (now() + timedelta(days=1)).isoformat()
     client_w_login.put(
@@ -192,15 +173,11 @@ def test_modify_workspace_metadata(
 
 
 def test_delete_workspace(
-    run_service,
-    backend_app,
-    backend_port,
+    backend,
     client_w_login,
     minimal_workspace_config,
 ):
     """Test of DELETE /workspace-endpoint."""
-
-    run_service(app=backend_app, port=backend_port, probing_path="ready")
 
     # create workspace that can be deleted
     workspace_id = client_w_login.post(
