@@ -1,10 +1,12 @@
 """Test-module for template-related endpoints."""
 
 from datetime import timedelta
+from uuid import uuid4
 
 import pytest
 from dcm_common.util import now
 from dcm_backend.util import DemoData
+from dcm_backend import app_factory as backend_factory
 
 
 @pytest.fixture(name="minimal_template_config")
@@ -276,14 +278,30 @@ def test_modify_template_metadata(
     assert response.json.get("datetimeModified") != datetime_modified
 
 
-def test_get_template_import_sources(backend, client_w_login):
-    """
-    Test of GET /template/hotfolder-sources-endpoint.
-    """
+def test_template_hotfolders(backend, backend_hotfolder, client_w_login):
+    """Test of /template/hotfolder-endpoints."""
 
-    response = client_w_login.get("/api/admin/template/hotfolder-sources")
-    assert response.status_code == 200
-    assert len(response.json) == 2
+    hotfolders = client_w_login.get("/api/admin/template/hotfolders")
+    assert hotfolders.status_code == 200
+    assert len(hotfolders.json) == 1
+
+    directories = client_w_login.get(
+        f"/api/admin/template/hotfolder-directories?id={hotfolders.json[0]['id']}"
+    )
+    assert directories.status_code == 200
+    assert directories.json == [
+        {"name": "job-0", "inUse": False, "linkedJobConfigs": []}
+    ]
+
+    assert (
+        client_w_login.post(
+            "/api/admin/template/hotfolder-directory",
+            json={"id": hotfolders.json[0]["id"], "name": "job-2"},
+        ).status_code
+        == 200
+    )
+
+    assert (backend_hotfolder / "job-2").is_dir()
 
 
 def test_delete_template(backend, client_w_login, minimal_template_config):

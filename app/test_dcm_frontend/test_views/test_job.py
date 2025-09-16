@@ -21,6 +21,7 @@ def test_post_job(
     backend,
     client_w_login,
     user1_credentials,
+    user2_credentials,
 ):
     """Test basic POST-/job with workspace-permission filtering."""
 
@@ -58,10 +59,18 @@ def test_post_job(
     assert response.status_code == 200
     assert response.json == token
 
-    # wrong workspace
+    # switch to user2
+    assert client_w_login.get("/api/auth/logout").status_code == 200
     assert (
         client_w_login.post(
-            f"/api/curator/job?id={DemoData.job_config2}"
+            "/api/auth/login", json=user2_credentials
+        ).status_code
+        == 200
+    )
+    # no access
+    assert (
+        client_w_login.post(
+            f"/api/curator/job?id={DemoData.job_config1}"
         ).status_code
         == 403
     )
@@ -124,6 +133,7 @@ def test_get_job_info(
     backend,
     client_w_login,
     user1_credentials,
+    user2_credentials,
 ):
     """Test basic GET-/job/info with workspace-permission filtering."""
 
@@ -151,10 +161,18 @@ def test_get_job_info(
     assert response.status_code == 200
     assert response.json.get("token") == DemoData.token1
 
+    # switch to user2
+    assert client_w_login.get("/api/auth/logout").status_code == 200
+    assert (
+        client_w_login.post(
+            "/api/auth/login", json=user2_credentials
+        ).status_code
+        == 200
+    )
     # wrong workspace
     assert (
         client_w_login.get(
-            f"/api/curator/job/info?token={DemoData.token2}"
+            f"/api/curator/job/info?token={DemoData.token1}"
         ).status_code
         == 403
     )
@@ -164,6 +182,7 @@ def test_get_job_records(
     backend,
     client_w_login,
     user1_credentials,
+    user2_credentials,
 ):
     """Test basic GET-/job/records with workspace-permission filtering."""
 
@@ -203,16 +222,26 @@ def test_get_job_records(
     assert response.status_code == 200
     assert response.json[0]["token"] == DemoData.token1
 
+
+    # switch to user2
+    assert client_w_login.get("/api/auth/logout").status_code == 200
+    assert (
+        client_w_login.post(
+            "/api/auth/login", json=user2_credentials
+        ).status_code
+        == 200
+    )
+
     # wrong workspace
     assert (
         client_w_login.get(
-            f"/api/curator/job/records?token={DemoData.token2}"
+            f"/api/curator/job/records?token={DemoData.token1}"
         ).status_code
         == 403
     )
     assert (
         client_w_login.get(
-            f"/api/curator/job/records?token={DemoData.job_config2}"
+            f"/api/curator/job/records?token={DemoData.job_config1}"
         ).status_code
         == 403
     )

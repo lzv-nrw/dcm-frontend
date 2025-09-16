@@ -1,5 +1,7 @@
 """Test-module for auth-endpoints."""
 
+from hashlib import md5
+
 from dcm_backend.util import DemoData
 
 
@@ -52,6 +54,61 @@ def test_login_and_permissions_admin(
             f"/api/auth/test-permissions-{testing_config.TEST_PERMISSIONS_WORKSPACE.group_id}",
         ).status_code
         == 403
+    )
+
+
+def test_change_password_and_login(backend, client):
+    """Test of /password-endpoint."""
+
+    username = "einstein"
+    password_a = md5(b"relativity").hexdigest()
+    password_b = md5(b"general relativity").hexdigest()
+
+    # attempt endpoint without login
+    assert (
+        client.put(
+            "/api/auth/password",
+            json={
+                "username": username,
+                "password": password_a,
+                "newPassword": password_b,
+            },
+        ).status_code
+        == 200
+    )
+
+    # login with new credentials
+    assert (
+        client.post(
+            "/api/auth/login",
+            json={"username": username, "password": password_b},
+        ).status_code
+        == 200
+    )
+
+    # change back
+    assert (
+        client.put(
+            "/api/auth/password",
+            json={
+                "username": username,
+                "password": password_b,
+                "newPassword": password_a,
+            },
+        ).status_code
+        == 200
+    )
+
+    # current session still ok
+    assert client.get("/api/auth/login").status_code == 200
+
+    # login with previous password not ok
+    assert (
+        client.post(
+            "/api/auth/login",
+            json={"username": username, "password": password_b},
+        ).status_code
+        == 401
     )
 
 

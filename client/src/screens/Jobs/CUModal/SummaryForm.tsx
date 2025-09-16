@@ -435,7 +435,7 @@ export function SummaryForm({ name }: FormSectionComponentProps) {
                 <p className="text-sm break-all">
                   {t("Unterverzeichnis") +
                     ": " +
-                    ((dataSelection as HotfolderDataSelection)?.subdirectory ??
+                    ((dataSelection as HotfolderDataSelection)?.path ??
                       "-")}
                 </p>
               </>

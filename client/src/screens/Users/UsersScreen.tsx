@@ -21,6 +21,7 @@ import {
   UsernameCell,
   ActionsCell,
 } from "./TableCells";
+import ActivationInfoModal, { ActivationInfo } from "./ActivationInfoModal";
 
 enum ColumnIdentifier {
   Lastname = "lastname",
@@ -64,6 +65,9 @@ export default function UsersScreen({ useACL = false }: UsersScreenProps) {
   const [sortBy, setSortBy] = useState<string>(ColumnIdentifier.Lastname);
   const [searchFor, setSearchFor] = useState<string | null>(null);
   const [showNewUserModal, setShowNewUserModal] = useState(false);
+  const [activationInfo, setActivationInfo] = useState<
+    { info: ActivationInfo; user: User } | undefined
+  >(undefined);
   const fetchGroups = useGlobalStore((state) => state.permission.fetchGroups);
   const userStore = useGlobalStore((state) => state.user);
   const workspaceStore = useGlobalStore((state) => state.workspace);
@@ -191,7 +195,18 @@ export default function UsersScreen({ useACL = false }: UsersScreenProps) {
           <CUModal
             show={showNewUserModal}
             onClose={() => setShowNewUserModal(false)}
+            onPostSuccess={(user, info) => setActivationInfo({ user, info })}
           />
+          {activationInfo ? (
+            <ActivationInfoModal
+              mode="new"
+              info={activationInfo.info}
+              user={activationInfo.user}
+              show={activationInfo !== undefined}
+              title={t("Neuer Nutzer angelegt")}
+              onConfirm={() => setActivationInfo(undefined)}
+            />
+          ) : null}
         </div>
         <MessageBox
           messages={errorMessageHandler.messages}

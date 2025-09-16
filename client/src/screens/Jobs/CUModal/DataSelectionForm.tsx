@@ -7,22 +7,25 @@ import {
   TextInput,
   Select,
   Spinner,
+  Radio,
 } from "flowbite-react";
-import { FiMinus } from "react-icons/fi";
+import { FiMinus, FiAlertCircle } from "react-icons/fi";
 
 import t from "../../../utils/translation";
-import { OAITemplateInfo } from "../../../types";
+import { HotfolderTemplateInfo, OAITemplateInfo } from "../../../types";
 import {
   getTextInputColor,
   textInputLimit,
   ValidationReport,
   Validator,
 } from "../../../utils/forms";
+import { genericSort } from "../../../utils/genericSort";
 import { credentialsValue, devMode, host } from "../../../App";
 import { FormSectionComponentProps } from "../../../components/SectionedForm";
 import Datepicker from "../../../components/Datepicker";
 import { useFormStore } from "./store";
 import { ErrorMessageContext } from "./Modal";
+import { defaultJSONFetch } from "../../../utils/api";
 
 type OAIDataSelectionFormChildren = never;
 
@@ -365,42 +368,59 @@ export function OaiDataSelectionForm({
   );
 }
 
-type HotfolderDataSelectionFormChildren = "subdirectory";
+type HotfolderDataSelectionFormChildren = "path";
 
 export interface HotfolderDataSelection {
-  subdirectory?: string;
+  path?: string;
 }
 
-export function validateSubdirectory(
+export function validatePath(
   strict: boolean,
-  subdirectory: string | undefined
+  path: string | undefined
 ): ValidationReport | undefined {
-  if (subdirectory === undefined && !strict) return;
-  if (subdirectory === undefined || subdirectory === "") return;
-  if (subdirectory.startsWith("/"))
+  if (path === undefined && !strict) return;
+  if (path === undefined || path === "")
     return {
       ok: false,
-      errors: [t("Der Pfad muss relativ sein.")],
+      errors: [t("Das Verzeichnis der Datenauswahl darf nicht leer sein.")],
     };
-  if (!/[^\0]*/.test(subdirectory))
-    // see https://stackoverflow.com/a/537876
+  if (path.startsWith("/"))
     return {
       ok: false,
-      errors: [t("Der Pfad enthält ungültige Zeichen.")],
+      errors: [t("Das Verzeichnis der Datenauswahl muss relativ sein.")],
+    };
+  if (!/^[^\0/\\:*?"<>|#%&{}$!@+`~;=,\n\r\t]*$/.test(path))
+    return {
+      ok: false,
+      errors: [
+        t("Das Verzeichnis der Datenauswahl enthält ungültige Zeichen."),
+      ],
     };
   return { ok: true };
+}
+
+type HotfolderDirectorySelectionMode = "" | "existing" | "new";
+
+interface HotfolderDirectoryInfo {
+  name: string;
+  inUse?: boolean;
+  linkedJobConfigs?: string[];
 }
 
 export function HotfolderDataSelectionForm({
   name,
   active,
 }: FormSectionComponentProps) {
+  const id = useFormStore((state) => state.id);
+  const template = useFormStore((state) => state.template);
   const [dataSelection, setDataSelection] = useFormStore(
     useShallow((state) => [state.dataSelection, state.setDataSelection])
   );
   const [validator, setCurrentValidationReport] = useFormStore(
     useShallow((state) => [state.validator, state.setCurrentValidationReport])
   );
+
+  const errorHandler = useContext(ErrorMessageContext);
 
   const [formVisited, setFormVisited] = useState(active);
 
@@ -411,23 +431,84 @@ export function HotfolderDataSelectionForm({
     if (active) setFormVisited(true);
   }, [active]);
 
+  // get hotfolder directories
+  const [mode, setMode] = useState<HotfolderDirectorySelectionMode>(
+    (dataSelection as HotfolderDataSelection)?.path ? "existing" : ""
+  );
+  const [directories, setDirectories] = useState<HotfolderDirectoryInfo[]>([]);
+  const [directoriesLoading, setDirectoriesLoading] = useState(false);
+  const [newDirectory, setNewDirectory] = useState("");
+  const [newDirectoryOk, setNewDirectoryOk] = useState<boolean | undefined>(
+    undefined
+  );
+  const [newDirectoryLoading, setNewDirectoryLoading] = useState(false);
+  const [newDirectoryCreated, setNewDirectoryCreated] = useState(false);
+
+  // load hotfolder directories from API
+  useEffect(() => {
+    setDirectoriesLoading(true);
+    errorHandler?.removeMessage("hotfolder-directories-error");
+    const sourceId = (template?.additionalInformation as HotfolderTemplateInfo)
+      .sourceId;
+    if (sourceId === undefined) {
+      errorHandler?.pushMessage({
+        id: `hotfolder-directories-error`,
+        text: t(
+          "Abfrage der Hotfolder-Verzeichnisse fehlgeschlagen: Das Template enthält keine Hotfolder-ID."
+        ),
+      });
+      return;
+    }
+    defaultJSONFetch(
+      "/api/admin/template/hotfolder-directories?" +
+        new URLSearchParams({ id: sourceId }).toString(),
+      t("Hotfolder-Verzeichnisse"),
+      () => setDirectoriesLoading(false),
+      (json) => setDirectories(json),
+      (msg) =>
+        errorHandler?.pushMessage({
+          id: `hotfolder-directories-error`,
+          text: `${t(
+            "Abfrage der Hotfolder-Verzeichnisse fehlgeschlagen"
+          )}: ${msg}`,
+        })
+    );
+    // eslint-disable-next-line
+  }, [mode]);
+
+  // reset form and store data when changing input mode
+  useEffect(() => {
+    if (active) {
+      setDataSelection({ path: undefined });
+      setNewDirectory("");
+      setNewDirectoryCreated(false);
+      setNewDirectoryLoading(false);
+      setNewDirectoryOk(undefined);
+    }
+    // eslint-disable-next-line
+  }, [mode]);
+
   // handle validation
-  // * subdirectory
+  // * newDirectory (local to this component)
+  useEffect(() => {
+    setNewDirectoryOk(validatePath(false, newDirectory)?.ok);
+    // eslint-disable-next-line
+  }, [newDirectory]);
+  // * path
   useEffect(() => {
     setCurrentValidationReport({
       children: {
         dataSelection: {
           children: {
-            subdirectory:
-              validator.children?.dataSelection?.children?.subdirectory?.validate(
-                false
-              ),
+            path: validator.children?.dataSelection?.children?.path?.validate(
+              false
+            ),
           },
         },
       },
     });
     // eslint-disable-next-line
-  }, [(dataSelection as HotfolderDataSelection)?.subdirectory]);
+  }, [(dataSelection as HotfolderDataSelection)?.path]);
   // * form section
   useEffect(() => {
     if (!formVisited) return;
@@ -439,39 +520,241 @@ export function HotfolderDataSelectionForm({
       },
     });
     // eslint-disable-next-line
-  }, [active, (dataSelection as HotfolderDataSelection)?.subdirectory]);
+  }, [active, (dataSelection as HotfolderDataSelection)?.path]);
 
   return (
-    <>
+    <div className="flex flex-col space-y-2">
       <h3 className="text-xl font-bold">{name}</h3>
-      <div className="flex flex-col space-y-2">
-        <Label
-          htmlFor="subdirectory"
-          value={t(
-            "Aus welchem Unterverzeichnis sollen Daten extrahiert werden?"
+      <p>
+        {t(
+          "Legen Sie das Verzeichnis fest, aus dem Daten extrahiert werden sollen."
+        )}
+      </p>
+      <div className="flex flex-col space-y-2 mt-5">
+        <div className="flex flex-row items-center">
+          <Label
+            className="text-md font-semibold"
+            htmlFor="mode"
+            value={t(
+              "Möchten Sie ein Verzeichnis auswählen oder ein neues anlegen?"
+            )}
+          />
+          {validator.children.dataSelection?.children?.path?.report?.ok ===
+            false && (
+            <div className="w-0">
+              <FiAlertCircle size={15} className="ml-2 text-red-500" />
+            </div>
           )}
-        />
-        <TextInput
-          id="subdirectory"
-          value={(dataSelection as HotfolderDataSelection)?.subdirectory || ""}
-          placeholder={t("pfad/zu/hotfolder")}
-          maxLength={textInputLimit.unlimited}
-          onChange={(e) => setDataSelection({ subdirectory: e.target.value })}
-          color={getTextInputColor({
-            ok:
-              focus === "subdirectory"
-                ? undefined
-                : validator.children?.dataSelection?.children?.subdirectory
-                    ?.report?.ok,
-          })}
-          onFocus={(e) => setFocus(e.target.id)}
-          onBlur={(e) => {
-            setFocus("");
-            setDataSelection({ subdirectory: e.target.value.trim() });
-          }}
-        />
+        </div>
+        <Select
+          className="w-1/2"
+          id="mode"
+          value={mode}
+          onChange={(e) =>
+            setMode(e.target.value as HotfolderDirectorySelectionMode)
+          }
+        >
+          <option value="">{t("Bitte auswählen")}</option>
+          <option value="existing" disabled={directories.length === 0}>
+            {t("Verzeichnis auswählen")}
+          </option>
+          <option value="new">{t("Neues Verzeichnis anlegen")}</option>
+        </Select>
       </div>
-    </>
+      <div className="flex flex-col space-y-2">
+        {mode === "existing" &&
+          (directoriesLoading ? (
+            <Spinner />
+          ) : (
+            <div className="flex flex-col space-y-1 bg-gray-50 border border-gray-200 p-3 rounded-lg shadow-md">
+              {directories
+                .sort(
+                  genericSort<HotfolderDirectoryInfo>({
+                    field: "name",
+                    fallbackValue: "",
+                    caseInsensitive: true,
+                  })
+                )
+                .map((d) => (
+                  <div
+                    key={`${d.name}-container`}
+                    className="flex flex-row space-x-2 items-center"
+                  >
+                    {d.inUse && !d.linkedJobConfigs?.includes(id ?? "") ? (
+                      <>
+                        {/* disabled option */}
+                        <Radio
+                          id={d.name}
+                          name="directories"
+                          value={d.name}
+                          disabled
+                          checked={
+                            (dataSelection as HotfolderDataSelection)?.path ===
+                            d.name
+                          }
+                        />
+                        <Label htmlFor={d.name} className="text-gray-500">
+                          {`${d.name} ${t("(in Verwendung)")}`}
+                        </Label>
+                      </>
+                    ) : (
+                      <>
+                        {/* enabled option */}
+                        <Radio
+                          className="hover:cursor-pointer"
+                          id={d.name}
+                          name="directories"
+                          value={d.name}
+                          checked={
+                            (dataSelection as HotfolderDataSelection)?.path ===
+                            d.name
+                          }
+                          onChange={() => setDataSelection({ path: d.name })}
+                        />
+                        <Label
+                          className="hover:cursor-pointer"
+                          htmlFor={d.name}
+                        >
+                          {d.name}
+                        </Label>
+                      </>
+                    )}
+                  </div>
+                ))}
+
+              {
+                /* Handle special case where currently configured selection is
+                   not in list of available directories.*/ (
+                  dataSelection as HotfolderDataSelection
+                )?.path !== undefined &&
+                directories.find(
+                  (d) =>
+                    d.name === (dataSelection as HotfolderDataSelection)?.path
+                ) === undefined ? (
+                  <div className="flex flex-row space-x-2 items-center">
+                    <Radio
+                      id={(dataSelection as HotfolderDataSelection)?.path}
+                      name="directories"
+                      value={(dataSelection as HotfolderDataSelection)?.path}
+                      disabled
+                      checked
+                    />
+                    <Label
+                      htmlFor={(dataSelection as HotfolderDataSelection)?.path}
+                      className="text-gray-500"
+                    >
+                      {`${(dataSelection as HotfolderDataSelection)?.path} ${t(
+                        "(existiert nicht mehr)"
+                      )}`}
+                    </Label>
+                  </div>
+                ) : null
+              }
+            </div>
+          ))}
+        {mode === "new" && (
+          <div className="flex flex-row space-x-2 items-center">
+            {newDirectoryCreated ? (
+              <>
+                <span>
+                  {t(
+                    `Verzeichnis '${
+                      (dataSelection as HotfolderDataSelection)?.path
+                    }' wurde angelegt.`
+                  )}
+                </span>
+                <Button
+                  onClick={() => {
+                    setDataSelection({ path: undefined });
+                    setNewDirectoryCreated(false);
+                  }}
+                >
+                  {t("Ändern")}
+                </Button>
+              </>
+            ) : (
+              <>
+                <TextInput
+                  id="path"
+                  className="grow"
+                  placeholder={t("neues-verzeichnis")}
+                  maxLength={textInputLimit.xl}
+                  value={newDirectory}
+                  onChange={(e) => setNewDirectory(e.target.value)}
+                  color={getTextInputColor({
+                    ok: focus === "path" ? null : newDirectoryOk,
+                  })}
+                  onBlur={(e) => {
+                    setFocus("");
+                    setNewDirectory(e.target.value.trim());
+                  }}
+                  onFocus={(e) => setFocus(e.target.id)}
+                />
+                <Button
+                  disabled={!newDirectoryOk || newDirectoryLoading}
+                  onClick={() => {
+                    setNewDirectoryLoading(true);
+                    errorHandler?.removeMessage("failed-new-directory-not-ok");
+                    errorHandler?.removeMessage("failed-new-directory-error");
+                    const sourceId = (
+                      template?.additionalInformation as HotfolderTemplateInfo
+                    ).sourceId;
+                    if (sourceId === undefined) {
+                      errorHandler?.pushMessage({
+                        id: `failed-new-directory-error`,
+                        text: t(
+                          "Fehler beim Anlegen des Verzeichnisses: Das Template enthält keine Hotfolder-ID."
+                        ),
+                      });
+                      return;
+                    }
+                    fetch(host + "/api/admin/template/hotfolder-directory", {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                      },
+                      credentials: credentialsValue,
+                      body: JSON.stringify({
+                        id: sourceId,
+                        name: newDirectory,
+                      }),
+                    })
+                      .then((response) => {
+                        setNewDirectoryLoading(false);
+                        if (!response.ok) {
+                          response.text().then((text) =>
+                            errorHandler?.pushMessage({
+                              id: "failed-new-directory-not-ok",
+                              text: `${t(
+                                `Anlegen des Verzeichnisses nicht erfolgreich`
+                              )}: ${text}`,
+                            })
+                          );
+                          return;
+                        }
+                        setDataSelection({ path: newDirectory });
+                        setNewDirectoryCreated(true);
+                      })
+                      .catch((error) => {
+                        setNewDirectoryLoading(false);
+                        console.error(error);
+                        errorHandler?.pushMessage({
+                          id: "failed-new-directory-error",
+                          text: `${t(
+                            `Fehler beim Anlegen des Verzeichnisses`
+                          )}: ${error.message}`,
+                        });
+                      });
+                  }}
+                >
+                  {newDirectoryLoading ? <Spinner /> : t("Verzeichnis anlegen")}
+                </Button>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 

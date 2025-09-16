@@ -1,6 +1,6 @@
 import { useContext, useState } from "react";
 import { Table, List, Button, Spinner } from "flowbite-react";
-import { FiEdit3, FiTrash2 } from "react-icons/fi";
+import { FiEdit3, FiTrash2, FiDelete } from "react-icons/fi";
 
 import t from "../../utils/translation";
 import { User } from "../../types";
@@ -10,6 +10,7 @@ import CUModal from "./CUModal/Modal";
 import { useFormStore } from "./CUModal/store";
 import { credentialsValue, host } from "../../App";
 import { ErrorMessageContext } from "./UsersScreen";
+import ActivationInfoModal, { ActivationInfo } from "./ActivationInfoModal";
 
 export interface TableCellProps {
   user?: User;
@@ -103,8 +104,13 @@ export function ActionsCell({ user }: TableCellProps) {
   const acl = useGlobalStore((state) => state.session.acl);
   const fetchList = useGlobalStore((state) => state.user.fetchList);
   const [loadingDelete, setLoadingDelete] = useState(false);
+  const [loadingReset, setLoadingReset] = useState(false);
   const [showCUModal, setShowCUModal] = useState(false);
   const [showConfirmDeleteModal, setShowConfirmDeleteModal] = useState(false);
+  const [showConfirmResetModal, setShowConfirmResetModal] = useState(false);
+  const [resetInfo, setResetInfo] = useState<
+  ActivationInfo | undefined
+  >(undefined);
   const initFromConfig = useFormStore((state) => state.initFromConfig);
 
   const errorHandler = useContext(ErrorMessageContext);
@@ -208,6 +214,87 @@ export function ActionsCell({ user }: TableCellProps) {
                   : t("Nutzer-Konfiguration löschen?")}
               </span>
             </ConfirmModal>
+          </>
+        ) : null}
+        {acl?.MODIFY_USERCONFIG ? (
+          <>
+            <Button
+              className="p-0 aspect-square items-center"
+              size="xs"
+              disabled={loadingReset}
+              onClick={() => {
+                setLoadingReset(true);
+                setShowConfirmResetModal(true);
+              }}
+            >
+              {loadingReset ? <Spinner size="sm" /> : <FiDelete size={20} />}
+            </Button>
+            <ConfirmModal
+              show={showConfirmResetModal}
+              title={t("Passwort zurücksetzen")}
+              onConfirm={() => {
+                fetch(
+                  host +
+                    "/api/admin/user/secrets?" +
+                    new URLSearchParams({ id: user.id }).toString(),
+                  {
+                    method: "DELETE",
+                    credentials: credentialsValue,
+                  }
+                )
+                  .then((response) => {
+                    setLoadingReset(false);
+                    if (!response.ok) {
+                      response.text().then((text) =>
+                        errorHandler?.pushMessage({
+                          id: `delete-${user.id}`,
+                          text: `${t(
+                            `Zurücksetzen von Nutzerkonfiguration '${
+                              user.username ?? user.id
+                            }' nicht erfolgreich`
+                          )}: ${text}`,
+                        })
+                      );
+                      setShowConfirmResetModal(false);
+                      return;
+                    }
+                    setShowConfirmResetModal(false);
+                    response.json().then(setResetInfo);
+                  })
+                  .catch((error) => {
+                    setLoadingReset(false);
+                    errorHandler?.pushMessage({
+                      id: `delete-${user.id}`,
+                      text: `${t(
+                        `Fehler beim Zurücksetzen von Nutzerkonfiguration '${
+                          user.username ?? user.id
+                        }'`
+                      )}: ${error.message}`,
+                    });
+                    fetchList({ replace: true });
+                  });
+              }}
+              onCancel={() => {
+                setShowConfirmResetModal(false);
+                setLoadingReset(false);
+              }}
+            >
+              <span>
+                {user?.username
+                  ? t(`Passwort für Nutzer '${user.username}' zurücksetzen?`)
+                  : t("Passwort zurücksetzen?")}
+              </span>
+            </ConfirmModal>
+            {resetInfo ? (
+              <ActivationInfoModal
+                mode="reset"
+                info={resetInfo}
+                user={user}
+                show={resetInfo !== undefined}
+                title={t("Passwort zurückgesetzt")}
+                onConfirm={() => setResetInfo(undefined)}
+              />
+            ) : null}
           </>
         ) : null}
       </div>

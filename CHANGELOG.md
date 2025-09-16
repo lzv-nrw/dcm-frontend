@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.24.0] - 2025-09-16
+
+### Changed
+
+- revised hotfolder-configuration in template- and job-configuration-workflows
+- migrated to updated backend template-API (hotfolder-related endpoints)
+
+### Added
+
+- added info-modals for displaying user-activation/login details after creation and reset
+- added API-endpoints for setting inital/changing current password
+
+### Fixed
+
+- fixed timezone offset when showing datetimes
+- fixed implement retries with delay to `defaultJSONFetch` when the server responds with HTTP 503
+
 ## [0.20.0] - 2025-09-09
 
 ### Changed

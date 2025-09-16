@@ -9,7 +9,7 @@ interface ConfirmModalProps {
   children?: React.ReactNode;
   confirmText?: string;
   cancelText?: string;
-  onCancel: () => void;
+  onCancel?: () => void;
   onConfirm: () => void;
 }
 export default function ConfirmModal({
@@ -23,11 +23,15 @@ export default function ConfirmModal({
 }: ConfirmModalProps) {
   return (
     <Modal show={show} width="lg" onClose={onCancel}>
-      <Modal.Header title={title} hideCloseButton/>
+      <Modal.Header title={title} hideCloseButton />
       <Modal.Body className="py-4">{children}</Modal.Body>
       <Modal.Footer>
         <div className="w-full flex flex-row justify-between">
-          <Button onClick={onCancel}>{cancelText}</Button>
+          {onCancel ? (
+            <Button onClick={onCancel}>{cancelText}</Button>
+          ) : (
+            <div />
+          )}
           <Button onClick={onConfirm}>{confirmText}</Button>
         </div>
       </Modal.Footer>

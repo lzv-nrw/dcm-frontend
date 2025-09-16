@@ -6,7 +6,7 @@ import {
   User,
   GroupInfo,
   Template,
-  HotfolderImportSource,
+  Hotfolder,
   Workspace,
   JobConfig,
   JobInfo,
@@ -71,8 +71,8 @@ export interface TemplateStore {
     onFail?: (error: string) => void;
     replace?: boolean;
   }) => void;
-  hotfolderImportSources: Record<string, HotfolderImportSource>;
-  fetchHotfolderImportSources: (p: {
+  hotfolders: Record<string, Hotfolder>;
+  fetchHotfolders: (p: {
     useACL?: boolean;
     onSuccess?: () => void;
     onFail?: (error: string) => void;
@@ -282,18 +282,18 @@ const useGlobalStore = create<GlobalStore>()((set, get) => ({
         onFail
       );
     },
-    hotfolderImportSources: {},
-    fetchHotfolderImportSources: ({ useACL = false, onSuccess, onFail }) => {
+    hotfolders: {},
+    fetchHotfolders: ({ useACL = false, onSuccess, onFail }) => {
       if (useACL && !get().session.acl?.READ_TEMPLATE) return;
       defaultJSONFetch(
-        "/api/admin/template/hotfolder-sources",
-        t("Importquellen"),
+        "/api/admin/template/hotfolders",
+        t("Hotfoldern"),
         (json) =>
           set((state) => ({
             template: {
               ...state.template,
-              hotfolderImportSources: Object.fromEntries(
-                json.map((src: HotfolderImportSource) => [src.id, src])
+              hotfolders: Object.fromEntries(
+                json.map((hotfolder: Hotfolder) => [hotfolder.id, hotfolder])
               ),
             },
           })),

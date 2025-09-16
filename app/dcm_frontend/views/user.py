@@ -5,7 +5,7 @@ User View-class definition
 from flask import Blueprint, jsonify, Response, request
 from flask_login import login_required, current_user as current_session
 from dcm_common import services, util
-from dcm_backend_sdk import ConfigApi
+from dcm_backend_sdk import UserApi
 
 from dcm_frontend.config import AppConfig
 from dcm_frontend.util import call_backend, remove_from_json
@@ -17,10 +17,10 @@ class UserView(services.View):
     NAME = "user"
 
     def __init__(
-        self, config: AppConfig, backend_config_api: ConfigApi
+        self, config: AppConfig, backend_user_api: UserApi
     ) -> None:
         super().__init__(config)
-        self.backend_config_api = backend_config_api
+        self.backend_user_api = backend_user_api
 
     def configure_bp(self, bp: Blueprint, *args, **kwargs) -> None:
         @bp.route("/config")
@@ -29,7 +29,7 @@ class UserView(services.View):
             """Returns current user's configuration."""
             response = call_backend(
                 endpoint=(
-                    self.backend_config_api.get_user_config_with_http_info
+                    self.backend_user_api.get_user_config_with_http_info
                 ),
                 kwargs={"id": current_session.user_config_id},
                 request_timeout=self.config.BACKEND_TIMEOUT,
@@ -55,7 +55,7 @@ class UserView(services.View):
             # get current user-configuration
             response = call_backend(
                 endpoint=(
-                    self.backend_config_api.get_user_config_with_http_info
+                    self.backend_user_api.get_user_config_with_http_info
                 ),
                 kwargs={"id": current_session.user_config_id},
                 request_timeout=self.config.BACKEND_TIMEOUT,
@@ -69,7 +69,7 @@ class UserView(services.View):
 
             # update with new widget-configuration
             response = call_backend(
-                endpoint=(self.backend_config_api.update_user_with_http_info),
+                endpoint=(self.backend_user_api.update_user_with_http_info),
                 args=[
                     remove_from_json(
                         response.data.to_dict(),

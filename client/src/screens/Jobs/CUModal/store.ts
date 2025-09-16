@@ -20,7 +20,7 @@ import {
   OaiDataSelection,
   DataSelectionFormValidator,
   DataSelectionFormChildren,
-  validateSubdirectory,
+  validatePath,
 } from "./DataSelectionForm";
 import {
   Description,
@@ -114,12 +114,12 @@ export const useFormStore = create<FormStore>()((set, get) => ({
           }
         ),
         children: {
-          subdirectory: {
+          path: {
             validate: (strict: boolean) => {
               if (get().template?.type !== "hotfolder") return undefined;
-              return validateSubdirectory(
+              return validatePath(
                 strict,
-                (get().dataSelection as HotfolderDataSelection)?.subdirectory
+                (get().dataSelection as HotfolderDataSelection)?.path
               );
             },
           },
@@ -231,7 +231,7 @@ export const useFormStore = create<FormStore>()((set, get) => ({
     switch (template.type) {
       case "hotfolder":
         store.setDataSelection(
-          { subdirectory: config.dataSelection?.path },
+          { path: config.dataSelection?.path },
           true
         );
         break;
@@ -320,7 +320,7 @@ export const useFormStore = create<FormStore>()((set, get) => ({
     switch (template.type) {
       case "hotfolder":
         dataSelection = {
-          path: (store.dataSelection as HotfolderDataSelection)?.subdirectory,
+          path: (store.dataSelection as HotfolderDataSelection)?.path,
         };
         break;
       case "oai":

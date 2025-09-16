@@ -72,7 +72,7 @@ export function formatDateToISOString(date: Date): string {
 
 /**
  * Returns re-formatted datetime-information.
- * @param dt ISO-datetime string
+ * @param dt ISO-datetime string, e.g. "2024-01-01T00:00:00+01:00"
  * @param timeMode object with booleans showTime and devMode
  * @returns formatted datetime-information.
  */
@@ -81,17 +81,26 @@ export function reformatDatetime(
   timeMode?: { showTime?: boolean; devMode?: boolean }
 ): string {
   if (!dt) return "-";
-  const match = dt.match(
-    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2}).*([+,-]\d{2}).*/
-  );
-  if (!match) return "?";
-  const [year, month, day, hour, minute, second, tz] = match.splice(1);
+
+  const date = new Date(dt);
+  if (isNaN(date.getTime())) return "?";
+  // Define local time components separately
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
+  const hour = String(date.getHours()).padStart(2, "0");
+  const minute = String(date.getMinutes()).padStart(2, "0");
+  const second = String(date.getSeconds()).padStart(2, "0");
 
   if (timeMode?.devMode) {
-    return `${day}.${month}.${year}, ${hour}:${minute}:${second}${tz}`;
-  } else if (timeMode?.showTime) {
+    return `${day}.${month}.${year}, ${hour}:${minute}:${second}`;
+  }
+
+  if (timeMode?.showTime) {
     return `${day}.${month}.${year}, ${hour}:${minute} ${t("Uhr")}`;
-  } else return `${day}.${month}.${year}`;
+  }
+
+  return `${day}.${month}.${year}`;
 }
 
 /**

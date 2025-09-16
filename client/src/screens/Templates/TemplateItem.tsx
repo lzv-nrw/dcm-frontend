@@ -43,8 +43,8 @@ function PluginDetails({ template }: TemplateItemDetailsProps) {
 }
 
 function HotfolderDetails({ template }: TemplateItemDetailsProps) {
-  const hotfolderSources = useGlobalStore(
-    (state) => state.template.hotfolderImportSources
+  const hotfolders = useGlobalStore(
+    (state) => state.template.hotfolders
   );
 
   return (
@@ -54,7 +54,7 @@ function HotfolderDetails({ template }: TemplateItemDetailsProps) {
           <span>{t("Hotfolder")}:</span>
           <span>
             {
-              hotfolderSources[
+              hotfolders[
                 (template.additionalInformation as HotfolderTemplateInfo)
                   .sourceId ?? ""
               ]?.name

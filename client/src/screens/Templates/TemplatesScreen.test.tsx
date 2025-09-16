@@ -62,7 +62,7 @@ test("shows no error if fetch successful", async () => {
         json: () => {
           if (url.endsWith("api/admin/templates"))
             return Promise.resolve(["t0"]);
-          if (url.endsWith("api/admin/template/hotfolder-sources"))
+          if (url.endsWith("api/admin/template/hotfolders"))
             return Promise.resolve([]);
           if (url.endsWith("api/admin/template?id=t0"))
             return Promise.resolve({
@@ -188,8 +188,8 @@ test.each([
           additionalInformation: { plugin: "xyz-789", args: {} },
         },
       },
-      hotfolderImportSources: {
-        src0: { id: "src0", name: "hotfolder: uvw-789", path: "" },
+      hotfolders: {
+        src0: { id: "src0", name: "hotfolder: uvw-789", mount: "" },
       },
     },
   }));

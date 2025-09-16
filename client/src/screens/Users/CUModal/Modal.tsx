@@ -5,6 +5,7 @@ import { FiAlertCircle } from "react-icons/fi";
 
 import t from "../../../utils/translation";
 import { applyReportToMessageHandler } from "../../../utils/forms";
+import { User } from "../../../types";
 import useGlobalStore from "../../../store";
 import { credentialsValue, host } from "../../../App";
 import SectionedForm from "../../../components/SectionedForm";
@@ -13,6 +14,7 @@ import {
   MessageHandler,
   useMessageHandler,
 } from "../../../components/MessageBox";
+import { ActivationInfo } from "../ActivationInfoModal";
 import { useFormStore } from "./store";
 import { DataForm } from "./DataForm";
 import { GroupsForm } from "./GroupsForm";
@@ -24,6 +26,7 @@ export const ErrorMessageContext = createContext<MessageHandler | undefined>(
 interface CUModalProps {
   show: boolean;
   onClose?: () => void;
+  onPostSuccess?: (user: User, activationInfo: ActivationInfo) => void;
   tab?: number;
   editing?: boolean;
 }
@@ -31,6 +34,7 @@ interface CUModalProps {
 export default function CUModal({
   show,
   onClose,
+  onPostSuccess,
   tab: tab0 = 0,
 }: CUModalProps) {
   const [tab, setTab] = useState(tab0);
@@ -154,6 +158,22 @@ export default function CUModal({
                         );
                         return;
                       }
+                      // open modal to display activation information
+                      if (!formStore.id && onPostSuccess)
+                        response
+                          .json()
+                          .then((json: { id: string } & ActivationInfo) =>
+                            onPostSuccess(
+                              {
+                                id: json.id,
+                                username: formStore.data?.username,
+                              },
+                              {
+                                secret: json.secret,
+                                requiresActivation: json.requiresActivation,
+                              }
+                            )
+                          );
                       fetchUserList({});
                       onClose?.();
                     })

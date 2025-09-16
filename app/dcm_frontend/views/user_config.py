@@ -64,7 +64,7 @@ class UserConfigView(services.View):
                 request_timeout=self.config.BACKEND_TIMEOUT,
             )
             if response.status_code == 200:
-                return jsonify({"id": response.data.id}), 200
+                return jsonify(response.data.to_dict()), 200
             return Response(
                 response.fail_reason,
                 mimetype="text/plain",
@@ -323,6 +323,80 @@ class UserConfigView(services.View):
                 mimetype="text/plain",
                 status=200,
             )
+
+        @bp.route("/user/secrets", methods=["DELETE"])
+        @login_required
+        @requires_permission(*self.config.ACL.MODIFY_USERCONFIG)
+        def delete_user_secrets():
+            if "id" not in request.args:
+                return Response(
+                    "Missing id.",
+                    mimetype="text/plain",
+                    status=400,
+                )
+
+            # mitigate lockout
+            # we do not need to account for all scenarios, but only want
+            # to mitigate the most likely one
+            # * get roles that allow creation of new users
+            admin_like_groups = [
+                rule.group_id
+                for rule in self.config.ACL.CREATE_USERCONFIG
+                if rule.TYPE == "simple"
+            ]
+            # * get list of users with those groups
+            if admin_like_groups:
+                response = call_backend(
+                    endpoint=self.backend_config_api.list_users_with_http_info,
+                    args=[",".join(admin_like_groups)],
+                    request_timeout=self.config.BACKEND_TIMEOUT,
+                )
+                if response.status_code != 200:
+                    return Response(
+                        "Error during lockout-mitigation: "
+                        + response.fail_reason,
+                        mimetype="text/plain",
+                        status=502,
+                    )
+                # * check if that list will be empty after removing the
+                #   requested configuration
+                if (
+                    len(
+                        [
+                            user
+                            for user in response.data
+                            if user != request.args["id"]
+                        ]
+                    )
+                    == 0
+                ):
+                    print(
+                        "Stop revoking activation of user "
+                        + f"'{request.args['id']}' to mitigate lockout.",
+                        file=sys.stderr,
+                    )
+                    return Response(
+                        "Cannot revoke user activation due to lockout-"
+                        + "mitigation.",
+                        mimetype="text/plain",
+                        status=403,
+                    )
+
+            # run request
+            response = call_backend(
+                endpoint=(
+                    self.backend_config_api.revoke_user_secrets_with_http_info
+                ),
+                kwargs=request.args,
+                request_timeout=self.config.BACKEND_TIMEOUT,
+            )
+            if not response.status_code == 200:
+                return Response(
+                    response.fail_reason,
+                    mimetype="text/plain",
+                    status=response.status_code,
+                )
+            return jsonify(response.data.to_dict()), 200
 
         @bp.route("/user-info", methods=["GET"])
         @login_required

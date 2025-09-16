@@ -44,6 +44,11 @@ def app_factory(config: AppConfig):
             dcm_backend_sdk.Configuration(host=config.BACKEND_HOST)
         )
     )
+    backend_template_api = dcm_backend_sdk.TemplateApi(
+        dcm_backend_sdk.ApiClient(
+            dcm_backend_sdk.Configuration(host=config.BACKEND_HOST)
+        )
+    )
     backend_config_api = dcm_backend_sdk.ConfigApi(
         dcm_backend_sdk.ApiClient(
             dcm_backend_sdk.Configuration(host=config.BACKEND_HOST)
@@ -61,7 +66,9 @@ def app_factory(config: AppConfig):
     view_permission = PermissionView(config)
     view_user_config = UserConfigView(config, backend_config_api)
     view_workspace = WorkspaceView(config, backend_config_api)
-    view_template = TemplateView(config, backend_config_api)
+    view_template = TemplateView(
+        config, backend_config_api, backend_template_api
+    )
     view_misc = MiscellaneousView(config)
     view_job_config = JobConfigView(config, backend_config_api)
     view_job = JobView(config, backend_job_api, backend_config_api)

@@ -11,7 +11,7 @@ setup(
         "flask>=3,<4",
         "flask-login>=0.6.3,<1",
         "dcm-common[services, db]>=4.0.0,<5",
-        "dcm-backend-sdk>=3.0.0,<4",
+        "dcm-backend-sdk>=3.3.0,<4",
         "oai-pmh-extractor>=3.0.0,<4",
     ],
     extras_require={},

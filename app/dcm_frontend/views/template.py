@@ -9,7 +9,7 @@ from flask import Blueprint, Response, request, jsonify
 from flask_login import login_required, current_user as current_session
 from dcm_common import services
 from dcm_common.util import now
-from dcm_backend_sdk import ConfigApi
+from dcm_backend_sdk import ConfigApi, TemplateApi
 
 from dcm_frontend.config import AppConfig
 from dcm_frontend.decorators import requires_permission, generate_workspaces
@@ -22,10 +22,14 @@ class TemplateView(services.View):
     NAME = "template"
 
     def __init__(
-        self, config: AppConfig, backend_config_api: ConfigApi
+        self,
+        config: AppConfig,
+        backend_config_api: ConfigApi,
+        backend_template_api: TemplateApi,
     ) -> None:
         super().__init__(config)
         self.backend_config_api = backend_config_api
+        self.backend_template_api = backend_template_api
 
     def configure_bp(self, bp: Blueprint, *args, **kwargs) -> None:
 
@@ -264,15 +268,18 @@ class TemplateView(services.View):
                 status=response.status_code,
             )
 
-        @bp.route("/template/hotfolder-sources", methods=["GET"])
+        @bp.route("/template/hotfolders", methods=["GET"])
         @login_required
         @requires_permission(
-           *(self.config.ACL.CREATE_TEMPLATE + self.config.ACL.MODIFY_TEMPLATE)
+            *(
+                self.config.ACL.CREATE_TEMPLATE
+                + self.config.ACL.MODIFY_TEMPLATE
+            )
         )
-        def get_import_sources():
+        def list_hotfolders():
             response = call_backend(
                 endpoint=(
-                    self.backend_config_api.get_hotfolder_sources_with_http_info
+                    self.backend_template_api.list_hotfolders_with_http_info
                 ),
                 request_timeout=self.config.BACKEND_TIMEOUT,
             )
@@ -280,8 +287,8 @@ class TemplateView(services.View):
                 return (
                     jsonify(
                         [
-                            src.model_dump(exclude_none=True)
-                            for src in response.data
+                            hotfolder.model_dump(exclude_none=True)
+                            for hotfolder in response.data
                         ]
                     ),
                     200,
@@ -290,4 +297,60 @@ class TemplateView(services.View):
                 response.fail_reason,
                 mimetype="text/plain",
                 status=response.status_code
+            )
+
+        @bp.route("/template/hotfolder-directories", methods=["GET"])
+        @login_required
+        @requires_permission(
+            *(
+                self.config.ACL.CREATE_TEMPLATE
+                + self.config.ACL.MODIFY_TEMPLATE
+            )
+        )
+        def list_hotfolder_directories():
+            response = call_backend(
+                endpoint=(
+                    self.backend_template_api.list_hotfolder_directories_with_http_info
+                ),
+                kwargs=request.args,
+                request_timeout=self.config.BACKEND_TIMEOUT,
+            )
+            if response.status_code == 200:
+                return (
+                    jsonify(
+                        [
+                            directory.to_dict()
+                            for directory in response.data
+                        ]
+                    ),
+                    200,
+                )
+            return Response(
+                response.fail_reason,
+                mimetype="text/plain",
+                status=response.status_code
+            )
+
+        @bp.route("/template/hotfolder-directory", methods=["POST"])
+        @login_required
+        @requires_permission(
+            *(
+                self.config.ACL.CREATE_TEMPLATE
+                + self.config.ACL.MODIFY_TEMPLATE
+            )
+        )
+        def create_hotfolder_directory():
+            response = call_backend(
+                endpoint=(
+                    self.backend_template_api.create_hotfolder_directory_with_http_info
+                ),
+                args=(request.json,),
+                request_timeout=self.config.BACKEND_TIMEOUT,
+            )
+            if response.status_code == 200:
+                return Response("OK", mimetype="text/plain", status=200)
+            return Response(
+                response.fail_reason,
+                mimetype="text/plain",
+                status=response.status_code,
             )

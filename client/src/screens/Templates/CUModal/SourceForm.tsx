@@ -12,7 +12,8 @@ import {
 import { FiAlertCircle, FiLock } from "react-icons/fi";
 
 import t from "../../../utils/translation";
-import { TemplateType, TransferUrlFilter } from "../../../types";
+import { genericSort } from "../../../utils/genericSort";
+import { Hotfolder, TemplateType, TransferUrlFilter } from "../../../types";
 import {
   getTextInputColor,
   textInputLimit,
@@ -211,9 +212,7 @@ export function HotfolderSourceForm() {
   const [source, setSource] = useFormStore(
     useShallow((state) => [state.source, state.setSource])
   );
-  const hotfolderSources = useGlobalStore(
-    (state) => state.template.hotfolderImportSources
-  );
+  const hotfolders = useGlobalStore((state) => state.template.hotfolders);
   const [validator, setCurrentValidationReport] = useFormStore(
     useShallow((state) => [state.validator, state.setCurrentValidationReport])
   );
@@ -259,15 +258,27 @@ export function HotfolderSourceForm() {
           onBlur={() => setFocus("")}
         >
           <option value="">{t("Bitte auswählen")}</option>
-          {Object.values(hotfolderSources)
-            .sort((a, b) =>
-              a.name.toLowerCase() > b.name.toLowerCase() ? 1 : -1
+          {Object.values(hotfolders)
+            .sort(
+              genericSort<Hotfolder>({
+                field: "name",
+                fallbackValue: "",
+                caseInsensitive: true,
+              })
             )
             .map(({ id, name }) => (
               <option key={id} value={id}>
                 {name}
               </option>
             ))}
+          {source?.hotfolder?.sourceId &&
+          hotfolders[source.hotfolder.sourceId] === undefined ? (
+            <option value={source?.hotfolder?.sourceId} disabled>
+              {t(
+                `Unbekannter Hotfolder '${source?.hotfolder?.sourceId}' (nicht mehr verfügbar)`
+              )}
+            </option>
+          ) : null}
         </Select>
       </div>
     </>

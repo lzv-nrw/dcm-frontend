@@ -87,10 +87,10 @@ export interface OAITemplateInfo {
   transferUrlFilters?: TransferUrlFilter[];
 }
 
-export interface HotfolderImportSource {
+export interface Hotfolder {
   id: string;
   name: string;
-  path: string;
+  mount: string;
   description?: string;
 }
 

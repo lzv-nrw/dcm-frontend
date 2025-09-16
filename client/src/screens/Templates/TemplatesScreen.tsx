@@ -39,14 +39,14 @@ export default function TemplatesScreen({
   const acl = useGlobalStore((state) => state.session.acl);
 
   // run store-logic
-  // * fetch all hotfolder-import-source options on first load
+  // * fetch all hotfolders on first load
   useEffect(
     () =>
-      templateStore.fetchHotfolderImportSources({
+      templateStore.fetchHotfolders({
         useACL: useACL,
         onFail: (msg) =>
           errorMessageHandler.pushMessage({
-            id: "fetch-hotfolder-import-sources",
+            id: "fetch-hotfolders",
             text: msg,
           }),
       }),
@@ -264,7 +264,7 @@ export default function TemplatesScreen({
                         ) +
                         (template.type === "hotfolder"
                           ? JSON.stringify(
-                              templateStore.hotfolderImportSources[
+                              templateStore.hotfolders[
                                 (
                                   template.additionalInformation as HotfolderTemplateInfo
                                 ).sourceId ?? ""

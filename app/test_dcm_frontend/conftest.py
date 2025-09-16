@@ -1,5 +1,6 @@
 from pathlib import Path
 from hashlib import md5
+from uuid import uuid4
 
 import pytest
 from dcm_common.services.tests import (
@@ -9,7 +10,7 @@ from dcm_common.services.tests import (
     tmp_cleanup,
 )
 from dcm_backend.config import AppConfig as BackendConfig
-from dcm_backend import app_factory as backend_factory, util
+from dcm_backend import app_factory as backend_factory
 
 from dcm_frontend import app_factory
 from dcm_frontend.config import AppConfig
@@ -136,8 +137,17 @@ def _backend_port():
     return "8086"
 
 
+@pytest.fixture(name="backend_hotfolder", scope="session")
+def _backend_hotfolder(temp_folder):
+    hotfolder_path = temp_folder / str(uuid4())
+
+    (hotfolder_path / "job-0").mkdir(parents=True)
+
+    return hotfolder_path
+
+
 @pytest.fixture(name="backend_config")
-def _backend_config(fixtures):
+def _backend_config(fixtures, backend_hotfolder):
 
     class Config(BackendConfig):
         ROSETTA_AUTH_FILE = fixtures / ".rosetta/rosetta_auth"
@@ -152,6 +162,12 @@ def _backend_config(fixtures):
         DB_ADAPTER_STARTUP_INTERVAL = 0.01
         DB_INIT_STARTUP_INTERVAL = 0.01
         SCHEDULER_INIT_STARTUP_INTERVAL = 0.01
+
+        HOTFOLDER_SRC = (
+            '[{"id": "0", "mount": "'
+            + str(backend_hotfolder)
+            + '", "name": "0"}]'
+        )
 
     return Config
 

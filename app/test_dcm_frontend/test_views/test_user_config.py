@@ -34,12 +34,11 @@ def test_create_user(
 ):
     """Minimal test of POST /user-endpoint."""
 
-    assert (
-        client_w_login.post(
-            "/api/admin/user", json=minimal_user_config
-        ).status_code
-        == 200
-    )
+    response = client_w_login.post("/api/admin/user", json=minimal_user_config)
+    assert response.status_code == 200
+    assert "id" in response.json
+    assert "secret" in response.json
+    assert "requiresActivation" in response.json
 
 
 def test_create_user_metadata(
@@ -216,4 +215,33 @@ def test_delete_user(
             f"/api/admin/user?id={DemoData.user0}"
         ).status_code
         == 403
+    )
+
+
+def test_delete_user_secrets(
+    backend,
+    client_w_login,
+    user1_credentials,
+):
+    """Minimal test of DELETE /user/secrets-endpoint."""
+
+    # lockout prevention
+    assert client_w_login.delete(
+        f"/api/admin/user/secrets?id={DemoData.user0}"
+    ).status_code == 403
+
+    # other user ok
+    response = client_w_login.delete(
+        f"/api/admin/user/secrets?id={DemoData.user1}"
+    )
+    assert response.status_code == 200
+    assert "secret" in response.json
+    assert "requiresActivation" in response.json
+
+    # login does not work anymore
+    assert (
+        client_w_login.post(
+            "/api/auth/login", json=user1_credentials
+        ).status_code
+        == 401
     )

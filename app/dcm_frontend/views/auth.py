@@ -8,7 +8,12 @@ from uuid import uuid4
 from datetime import datetime, timedelta
 
 from flask import Blueprint, Response, jsonify, request
-from flask_login import login_required, login_user, logout_user, current_user
+from flask_login import (
+    login_required,
+    login_user,
+    logout_user,
+    current_user as current_session,
+)
 from dcm_common import services
 from dcm_backend_sdk import UserApi
 
@@ -168,15 +173,37 @@ class AuthView(services.View):
 
             return jsonify(config_jsonable), 200
 
+        @bp.route("/password", methods=["PUT"])
+        def put_password():
+            """Sets user's password."""
+            response = call_backend(
+                endpoint=(
+                    self.backend_user_api.change_user_password_with_http_info
+                ),
+                args=(request.json,),
+                request_timeout=self.config.BACKEND_TIMEOUT,
+            )
+            if response.status_code == 200:
+                return Response(
+                    "OK",
+                    mimetype="text/plain",
+                    status=200
+                )
+            return Response(
+                response.fail_reason,
+                mimetype="text/plain",
+                status=response.status_code
+            )
+
     def _add_logout_endpoint(self, bp: Blueprint) -> None:
         @bp.route("/logout")
         @login_required
         def logout():
             """Log user out."""
-            self.config.sessions.delete(current_user.key)
+            self.config.sessions.delete(current_session.key)
             print(
                 "Successful logout for user "
-                + f"'{current_user.user.config.get('username', '??')}'.",
+                + f"'{current_session.user.config.get('username', '??')}'.",
                 file=sys.stderr,
             )
             logout_user()
