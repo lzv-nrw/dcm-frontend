@@ -203,9 +203,9 @@ export const useFormStore = create<FormStore>()((set, get) => ({
             type: "plugin",
             plugin: {
               plugin: (template.additionalInformation as PluginTemplateInfo)
-                .plugin,
+                ?.plugin,
               args: JSON.stringify(
-                (template.additionalInformation as PluginTemplateInfo).args
+                (template.additionalInformation as PluginTemplateInfo)?.args
               ),
             },
           },
@@ -219,7 +219,7 @@ export const useFormStore = create<FormStore>()((set, get) => ({
             hotfolder: {
               sourceId: (
                 template.additionalInformation as HotfolderTemplateInfo
-              ).sourceId,
+              )?.sourceId,
             },
           },
           true
@@ -230,13 +230,13 @@ export const useFormStore = create<FormStore>()((set, get) => ({
           {
             type: "oai",
             oai: {
-              url: (template.additionalInformation as OAITemplateInfo).url,
+              url: (template.additionalInformation as OAITemplateInfo)?.url,
               metadataPrefix: (
                 template.additionalInformation as OAITemplateInfo
-              ).metadataPrefix,
+              )?.metadataPrefix,
               metadataPrefixes: (
                 template.additionalInformation as OAITemplateInfo
-              ).metadataPrefix
+              )?.metadataPrefix
                 ? [
                     (template.additionalInformation as OAITemplateInfo)
                       .metadataPrefix!,
@@ -244,7 +244,7 @@ export const useFormStore = create<FormStore>()((set, get) => ({
                 : undefined,
               transferUrlFilters: (
                 template.additionalInformation as OAITemplateInfo
-              ).transferUrlFilters,
+              )?.transferUrlFilters,
             },
           },
           true

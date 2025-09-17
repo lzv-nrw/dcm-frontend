@@ -391,7 +391,7 @@ export function SummaryForm({ name }: FormSectionComponentProps) {
                 <p className="text-sm break-all">
                   {t("Quellsystem") +
                     ": " +
-                    (template?.additionalInformation as OAITemplateInfo).url}
+                    (template?.additionalInformation as OAITemplateInfo)?.url}
                 </p>
                 {(dataSelection as OaiDataSelection)?.sets ? (
                   <p className="text-sm break-all">
@@ -435,8 +435,7 @@ export function SummaryForm({ name }: FormSectionComponentProps) {
                 <p className="text-sm break-all">
                   {t("Unterverzeichnis") +
                     ": " +
-                    ((dataSelection as HotfolderDataSelection)?.path ??
-                      "-")}
+                    ((dataSelection as HotfolderDataSelection)?.path ?? "-")}
                 </p>
               </>
             ) : (

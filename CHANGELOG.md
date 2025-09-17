@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.24.1] - 2025-09-17
+
+### Fixed
+
+- fixed an issue with draft-templates and undefined `additionalInformation`
+
 ## [0.24.0] - 2025-09-16
 
 ### Changed

@@ -348,7 +348,7 @@ export function OaiDataSelectionForm({
           {filterType === "sets" && (
             <OAISetInput
               sets={(dataSelection as OaiDataSelection)?.sets ?? []}
-              url={(template?.additionalInformation as OAITemplateInfo).url}
+              url={(template?.additionalInformation as OAITemplateInfo)?.url}
               onChange={(sets) => setDataSelection({ sets: sets ?? undefined })}
             />
           )}

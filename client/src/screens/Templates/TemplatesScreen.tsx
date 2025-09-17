@@ -267,7 +267,7 @@ export default function TemplatesScreen({
                               templateStore.hotfolders[
                                 (
                                   template.additionalInformation as HotfolderTemplateInfo
-                                ).sourceId ?? ""
+                                )?.sourceId ?? ""
                               ]
                             )
                           : "")

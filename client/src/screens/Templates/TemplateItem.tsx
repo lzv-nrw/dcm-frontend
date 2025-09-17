@@ -23,7 +23,7 @@ interface TemplateItemDetailsProps {
 function PluginDetails({ template }: TemplateItemDetailsProps) {
   return (
     <>
-      {(template.additionalInformation as PluginTemplateInfo).plugin ? (
+      {(template.additionalInformation as PluginTemplateInfo)?.plugin ? (
         <div className="flex flex-row space-x-2 text-nowrap overflow-hidden">
           <span>{t("Spezifisches Plugin")}:</span>
           <span>
@@ -33,7 +33,7 @@ function PluginDetails({ template }: TemplateItemDetailsProps) {
           ;<span className="text-gray-400">{t("Konfiguration")}:</span>
           <pre className="text-gray-400">
             {JSON.stringify(
-              (template.additionalInformation as PluginTemplateInfo).args
+              (template.additionalInformation as PluginTemplateInfo)?.args
             )}
           </pre>
         </div>
@@ -43,13 +43,11 @@ function PluginDetails({ template }: TemplateItemDetailsProps) {
 }
 
 function HotfolderDetails({ template }: TemplateItemDetailsProps) {
-  const hotfolders = useGlobalStore(
-    (state) => state.template.hotfolders
-  );
+  const hotfolders = useGlobalStore((state) => state.template.hotfolders);
 
   return (
     <>
-      {(template.additionalInformation as HotfolderTemplateInfo).sourceId ? (
+      {(template.additionalInformation as HotfolderTemplateInfo)?.sourceId ? (
         <div className="flex flex-row space-x-2 dcm-clamp-text">
           <span>{t("Hotfolder")}:</span>
           <span>
