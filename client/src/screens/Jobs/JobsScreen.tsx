@@ -15,7 +15,7 @@ import MessageBox, {
 import { devMode } from "../../App";
 import CUModal from "./CUModal/Modal";
 import * as TableCells from "./TableCells";
-import DebugJobModal from "./DebugJobModal";
+import MonitorJobModal from "./MonitorJobModal";
 
 enum ColumnIdentifier {
   Name = "name",
@@ -103,7 +103,7 @@ export default function JobsScreen({ useACL = false }: JobsScreenProps) {
   const [sortBy, setSortBy] = useState<string>("name");
 
   const [showCUModal, setShowCUModal] = useState(false);
-  const [showDebugJobModal, setShowDebugJobModal] = useState(false);
+  const [showMonitorJobModal, setShowMonitorJobModal] = useState(false);
 
   const workspaceStore = useGlobalStore((state) => state.workspace);
   const templateStore = useGlobalStore((state) => state.template);
@@ -230,14 +230,14 @@ export default function JobsScreen({ useACL = false }: JobsScreenProps) {
               <>
                 <Button
                   type="button"
-                  onClick={() => setShowDebugJobModal(true)}
+                  onClick={() => setShowMonitorJobModal(true)}
                 >
                   {t("Job verfolgen")}
                 </Button>
-                <DebugJobModal
-                  show={showDebugJobModal}
+                <MonitorJobModal
+                  show={showMonitorJobModal}
                   onClose={() => {
-                    setShowDebugJobModal(false);
+                    setShowMonitorJobModal(false);
                   }}
                 />
               </>

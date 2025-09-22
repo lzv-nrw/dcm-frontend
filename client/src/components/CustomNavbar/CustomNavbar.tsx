@@ -1,12 +1,14 @@
+import { useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { NavLink, useLocation, useNavigate } from "react-router";
-import { Avatar, Dropdown, Navbar, Button } from "flowbite-react";
+import { Avatar, Navbar } from "flowbite-react";
 
 import t from "../../utils/translation";
 import { createGravatar } from "../../utils/util";
 import useGlobalStore from "../../store";
 import { host, credentialsValue } from "../../App";
 import { clearCookies } from "../../utils/session";
+import ContextMenu from "../ContextMenu";
 
 export interface CustomNavlinks {
   path: string;
@@ -35,6 +37,7 @@ export default function CustomNavbar() {
   );
   const location = useLocation();
   const navigate = useNavigate();
+  const [openContextMenu, setOpenContextMenu] = useState(false);
 
   /**
    * Logs current user out by clearing browser (store and persistent)
@@ -70,30 +73,34 @@ export default function CustomNavbar() {
       className="App-nav h-16 px-8 border-y border-[#333] border-solid"
     >
       <div className="flex md:order-2">
-        <Dropdown
-          arrowIcon={false}
-          inline
-          label={
-            <Avatar alt="user avatar" img={createGravatar(me?.email)} rounded />
-          }
+        <ContextMenu
+          open={openContextMenu}
+          onOpenChange={setOpenContextMenu}
+          items={[
+            {
+              children: (
+                <>
+                  <div className="font-semibold">
+                    {`${me?.firstname ?? ""} ${me?.lastname ?? ""}`}
+                  </div>
+                  <div>{me?.username ?? ""}</div>
+                </>
+              ),
+            },
+            {
+              children: t("Passwort ändern"),
+              onClick: () => navigate("/password-update"),
+            },
+            {
+              children: t("Abmelden"),
+              onClick: () => logout(),
+            },
+          ]}
         >
-          <Dropdown.Header>
-            <span className="username block text-sm">{me?.username}</span>
-            {me?.email ? (
-              <span className="block truncate text-sm font-medium">
-                {me?.email}
-              </span>
-            ) : null}
-            <Button
-              id="logOutBtn"
-              onClick={logout}
-              color="light"
-              className="mx-2 my-2"
-            >
-              Abmelden
-            </Button>
-          </Dropdown.Header>
-        </Dropdown>
+          <div className="hover:cursor-pointer">
+            <Avatar alt="user avatar" img={createGravatar(me?.email)} rounded />
+          </div>
+        </ContextMenu>
         <Navbar.Toggle />
       </div>
       <Navbar.Collapse>

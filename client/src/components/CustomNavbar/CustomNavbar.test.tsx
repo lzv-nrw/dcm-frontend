@@ -12,6 +12,8 @@ import CustomNavbar from "./CustomNavbar";
 const userMock = {
   id: "testUser",
   username: "testUser",
+  firstname: "testUserFirstName",
+  lastname: "testUserLastName",
   groups: [{ id: "admin" }],
   email: "test@example.com",
 };
@@ -43,7 +45,7 @@ describe("CustomNavbar component render", () => {
 
     // .. and assert
     expect(navbar.getByText(userMock.username)).toBeInTheDocument();
-    expect(navbar.getByText(userMock.email)).toBeInTheDocument();
+    expect(navbar.getByText(`${userMock.firstname} ${userMock.lastname}`)).toBeInTheDocument();
     expect(navbar.getByText(t("Abmelden"))).toBeInTheDocument();
   });
 

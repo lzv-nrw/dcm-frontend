@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { Alert, Button, TextInput } from "flowbite-react";
-import { FiEye, FiEyeOff } from "react-icons/fi";
+import { Alert, Button } from "flowbite-react";
 import md5 from "md5";
 
 import t from "../../utils/translation";
 import { User } from "../../types";
 import ConfirmModal from "../../components/ConfirmModal";
+import PasswordInput from "../../components/PasswordInput";
 
 export interface ActivationInfo {
   secret: string;
@@ -29,15 +29,13 @@ export default function ActivationInfoModal({
   title,
   onConfirm,
 }: ActivationInfoModalProps) {
-  const [showSecret, setShowSecret] = useState(false);
   const [copied, setCopied] = useState(false);
   const secretRef = useRef<HTMLInputElement>(null);
 
   // reset modal state
   useEffect(() => {
-    setShowSecret(false);
     setCopied(false);
-  }, [info])
+  }, [info]);
 
   return (
     <ConfirmModal
@@ -69,9 +67,9 @@ export default function ActivationInfoModal({
       <div className="w-full flex flex-col items-center my-5">
         <div className="flex flex-row space-x-1 w-3/4">
           <div className="relative w-3/4">
-            <TextInput
-              type={showSecret ? "text" : "password"}
+            <PasswordInput
               ref={secretRef}
+              readOnly
               value={
                 info.requiresActivation
                   ? window.location.origin +
@@ -82,25 +80,7 @@ export default function ActivationInfoModal({
                     }).toString()
                   : info.secret
               }
-              rightIcon={() => null}
             />
-            <div
-              className="absolute right-3 top-3.5 opacity-50 hover:cursor-pointer"
-              aria-label="toggle hidden secret"
-            >
-              {!showSecret && (
-                <FiEye
-                  aria-label="hide secret"
-                  onClick={() => setShowSecret(true)}
-                />
-              )}
-              {showSecret && (
-                <FiEyeOff
-                  aria-label="show secret"
-                  onClick={() => setShowSecret(false)}
-                />
-              )}
-            </div>
           </div>
           <Button
             onClick={() =>

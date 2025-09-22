@@ -13,7 +13,7 @@ import {
   FieldConfiguration,
 } from "../../../components/OperationsForm/types";
 import { useFormStore } from "./store";
-import { getStageTitle, StageOrder } from "../DebugJobModal";
+import { getStageTitle, StageOrder } from "../MonitorJobModal";
 import { HotfolderDataSelection, OaiDataSelection } from "./DataSelectionForm";
 import { combineDateAndTime, ScheduleTypeInfo } from "./SchedulingForm";
 import { ErrorMessageContext } from "./Modal";
@@ -322,7 +322,11 @@ export function SummaryForm({ name }: FormSectionComponentProps) {
                                           "Zusammenfassung der Test-Resultate zum Identifier"
                                         ) +
                                         ` '${recordId}'\n\n`;
-                                      for (const stageId of StageOrder) {
+                                      for (const stageId of [
+                                        "import_ips",
+                                        "import_ies",
+                                        ...StageOrder,
+                                      ]) {
                                         if (
                                           !record.stages?.[stageId]?.completed
                                         )

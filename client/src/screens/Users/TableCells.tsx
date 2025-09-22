@@ -101,6 +101,7 @@ export function GroupsCell({ user }: TableCellProps) {
 }
 
 export function ActionsCell({ user }: TableCellProps) {
+  const me = useGlobalStore((state) => state.session.me);
   const acl = useGlobalStore((state) => state.session.acl);
   const fetchList = useGlobalStore((state) => state.user.fetchList);
   const [loadingDelete, setLoadingDelete] = useState(false);
@@ -221,7 +222,7 @@ export function ActionsCell({ user }: TableCellProps) {
             <Button
               className="p-0 aspect-square items-center"
               size="xs"
-              disabled={loadingReset}
+              disabled={loadingReset || user.id === me?.id}
               onClick={() => {
                 setLoadingReset(true);
                 setShowConfirmResetModal(true);

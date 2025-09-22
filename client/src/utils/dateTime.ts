@@ -93,7 +93,7 @@ export function reformatDatetime(
   const second = String(date.getSeconds()).padStart(2, "0");
 
   if (timeMode?.devMode) {
-    return `${day}.${month}.${year}, ${hour}:${minute}:${second}`;
+    return `${day}.${month}.${year}, ${hour}:${minute}:${second} ${t("Uhr")}`;
   }
 
   if (timeMode?.showTime) {

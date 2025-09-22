@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.26.0] - 2025-09-22
+
+### Changed
+
+- replaced Dropdown with ContextMenu in Navbar
+- updated `MonitorJobModal` for easier use in large jobs
+- renamed component `DebugJobModal` to `MonitorJobModal`
+
+### Added
+
+- added generic `PasswordInput` component for reusable password fields
+- added `SetPasswordScreen` for user-activation und password updates
+
+### Fixed
+
+- disabled the password-reset button for the current user
+
 ## [0.24.1] - 2025-09-17
 
 ### Fixed

@@ -10,7 +10,7 @@ import { JobConfig } from "../../types";
 import useGlobalStore from "../../store";
 import ConfirmModal from "../../components/ConfirmModal";
 import { host, credentialsValue, devMode } from "../../App";
-import DebugJobModal from "./DebugJobModal";
+import MonitorJobModal from "./MonitorJobModal";
 import CUModal from "./CUModal/Modal";
 import { useFormStore } from "./CUModal/store";
 import { ErrorMessageContext } from "./JobsScreen";
@@ -177,7 +177,7 @@ export function ActionsCell({ config }: TableCellProps) {
 
   // devMode-Modal for tracking job progress
   const [token, setToken] = useState<string | null>(null);
-  const [showDebugJobModal, setShowDebugJobModal] = useState(false);
+  const [showMonitorJobModal, setShowMonitorJobModal] = useState(false);
 
   function submitJob() {
     if (!config) return;
@@ -211,7 +211,7 @@ export function ActionsCell({ config }: TableCellProps) {
       .then((json) => {
         fetchJobConfig({ jobConfigId: config.id });
         setToken(json.value);
-        setShowDebugJobModal(true);
+        setShowMonitorJobModal(true);
       })
       .catch((error) => {
         errorHandler?.pushMessage({
@@ -230,12 +230,12 @@ export function ActionsCell({ config }: TableCellProps) {
   return (
     <Table.Cell>
       {token ? (
-        <DebugJobModal
-          show={showDebugJobModal}
+        <MonitorJobModal
+          show={showMonitorJobModal}
           initialToken={token}
           onClose={() => {
             setToken(null);
-            setShowDebugJobModal(false);
+            setShowMonitorJobModal(false);
           }}
         />
       ) : null}
@@ -294,7 +294,7 @@ export function ActionsCell({ config }: TableCellProps) {
                 setShowConfirmWatchModal(false);
                 if (config.latestExec) {
                   setToken(config.latestExec);
-                  setShowDebugJobModal(true);
+                  setShowMonitorJobModal(true);
                 }
               }}
               onCancel={() => {

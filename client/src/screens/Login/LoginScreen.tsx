@@ -1,13 +1,13 @@
 import { useState, useRef } from "react";
 import { Label, TextInput, Button, Alert, Spinner } from "flowbite-react";
 import { useShallow } from "zustand/react/shallow";
-import { FiEye, FiEyeOff } from "react-icons/fi";
 import md5 from "md5";
 
 import t from "../../utils/translation";
 import useGlobalStore from "../../store";
 import { getTextInputColor, textInputLimit } from "../../utils/forms";
 import { credentialsValue, host } from "../../App";
+import PasswordInput from "../../components/PasswordInput";
 
 export default function LoginScreen() {
   const [setLoggedIn, setMe, fetchACL] = useGlobalStore(
@@ -21,7 +21,6 @@ export default function LoginScreen() {
   const [usernameOk, setUsernameOk] = useState<boolean | null>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   const [passwordOk, setPasswordOk] = useState<boolean | null>(null);
-  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState<boolean>(false);
 
@@ -100,11 +99,11 @@ export default function LoginScreen() {
         <div className="space-y-2">
           <Label
             className="font-bold"
-            htmlFor="userId"
+            htmlFor="username"
             value={t("Benutzername")}
           />
           <TextInput
-            id="userId"
+            id="username"
             ref={usernameRef}
             color={getTextInputColor({ ok: usernameOk, success_color: null })}
             maxLength={textInputLimit.sm}
@@ -125,41 +124,21 @@ export default function LoginScreen() {
             htmlFor="password"
             value={t("Passwort")}
           />
-          <div className="relative">
-            <TextInput
-              id="password"
-              ref={passwordRef}
-              type={showPassword ? "text" : "password"}
-              color={getTextInputColor({ ok: passwordOk, success_color: null })}
-              maxLength={textInputLimit.md}
-              onFocus={() => {
-                setPasswordOk(null);
-              }}
-              onChange={(e) => {
-                setPasswordOk(e.target?.value.trim() !== "");
-              }}
-              onBlur={(e) => {
-                setPasswordOk(e.target?.value.trim() !== "");
-              }}
-            />
-            <div
-              className="absolute right-2 top-3.5 opacity-50 hover:cursor-pointer"
-              aria-label="toggle hidden password"
-            >
-              {!showPassword && (
-                <FiEye
-                  aria-label="hide password"
-                  onClick={() => setShowPassword(true)}
-                />
-              )}
-              {showPassword && (
-                <FiEyeOff
-                  aria-label="show password"
-                  onClick={() => setShowPassword(false)}
-                />
-              )}
-            </div>
-          </div>
+          <PasswordInput
+            id="password"
+            ref={passwordRef}
+            color={getTextInputColor({ ok: passwordOk, success_color: null })}
+            maxLength={textInputLimit.md}
+            onFocus={() => {
+              setPasswordOk(null);
+            }}
+            onChange={(e) => {
+              setPasswordOk(e.target?.value.trim() !== "");
+            }}
+            onBlur={(e) => {
+              setPasswordOk(e.target?.value.trim() !== "");
+            }}
+          />
         </div>
         {error ? <Alert color="failure">{error}</Alert> : null}
         <Button type="submit" disabled={sending}>

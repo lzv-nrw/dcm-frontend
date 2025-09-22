@@ -195,6 +195,13 @@ export interface JobInfo {
         };
       };
     };
+    log: {
+      [key: string]: {
+        body: string;
+        datetime: string;
+        origin: string;
+      }[];
+    };
   };
   templateId?: string;
   workspaceId?: string;

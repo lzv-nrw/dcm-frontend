@@ -13,6 +13,7 @@ import t from "./utils/translation";
 import useGlobalStore from "./store";
 import CustomNavbar from "./components/CustomNavbar/CustomNavbar";
 import LoginScreen from "./screens/Login/LoginScreen";
+import SetPasswordScreen from "./screens/SetPassword/SetPasswordScreen";
 import DashboardScreen from "./screens/Dashboard/Dashboard";
 import HomeScreen from "./screens/Home/HomeScreen";
 import UsersScreen from "./screens/Users/UsersScreen";
@@ -146,7 +147,10 @@ export default function App() {
         {loggedIn === true && <CustomNavbar />}
       </header>
       <div className="w-[100%] h-full">
-        {initialized && loggedIn === false && location.pathname !== "/" ? (
+        {initialized &&
+        loggedIn === false &&
+        location.pathname !== "/" &&
+        location.pathname !== "/activate" ? (
           <Navigate to="/login" />
         ) : null}
         <section className="w-full">
@@ -159,6 +163,19 @@ export default function App() {
               <Route
                 path="/dashboard"
                 element={<DashboardScreen acceptedWidgets={["demo"]} />}
+              />
+              <Route
+                path="/activate"
+                element={
+                  !loggedIn ? (
+                    <SetPasswordScreen
+                      mode="activate"
+                      onPasswordSet={() => navigate("/")}
+                    />
+                  ) : (
+                    <Navigate to="/" />
+                  )
+                }
               />
               <Route
                 path="/login"
@@ -179,6 +196,15 @@ export default function App() {
                   <Route
                     path="/workspaces"
                     element={<WorkspacesScreen useACL />}
+                  />
+                  <Route
+                    path="/password-update"
+                    element={
+                      <SetPasswordScreen
+                        mode="update"
+                        onPasswordSet={() => navigate("/")}
+                      />
+                    }
                   />
                 </>
               ) : null}
