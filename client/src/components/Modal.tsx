@@ -151,23 +151,27 @@ function ModalHeader({
     <>
       <div className={`px-6 py-4 flex justify-between ${className}`}>
         <div className="w-full">
-          {title ? (
-            <h3 className="text-2xl font-bold text-gray-900 dcm-clamp-text">
-              {title}
-            </h3>
-          ) : null}
+          <div className="flex justify-between items-center">
+            <div>
+              {title ? (
+                <h3 className="text-2xl font-bold text-gray-900 dcm-clamp-text">
+                  {title}
+                </h3>
+              ) : null}
+            </div>
+            {hideCloseButton !== true ? (
+              <div className="mr-2">
+                <button
+                  className="rounded-lg bg-transparent p-1.5 text-sm text-gray-400 hover:bg-gray-200 hover:text-gray-900"
+                  onClick={context?.onClose}
+                >
+                  <FiX size="20" />
+                </button>
+              </div>
+            ) : null}
+          </div>
           {children}
         </div>
-        {hideCloseButton !== true ? (
-          <div className="mr-2">
-            <button
-              className="rounded-lg bg-transparent p-1.5 text-sm text-gray-400 hover:bg-gray-200 hover:text-gray-900"
-              onClick={context?.onClose}
-            >
-              <FiX size="20" />
-            </button>
-          </div>
-        ) : null}
       </div>
       <hr />
     </>

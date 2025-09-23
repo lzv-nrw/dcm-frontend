@@ -278,12 +278,38 @@ def test_modify_template_metadata(
     assert response.json.get("datetimeModified") != datetime_modified
 
 
-def test_template_hotfolders(backend, backend_hotfolder, client_w_login):
+def test_template_hotfolders(
+    backend, backend_hotfolder, client_w_login, user1_credentials
+):
     """Test of /template/hotfolder-endpoints."""
 
     hotfolders = client_w_login.get("/api/admin/template/hotfolders")
     assert hotfolders.status_code == 200
     assert len(hotfolders.json) == 1
+
+    # admin does not have permissions for directories
+    assert (
+        client_w_login.get(
+            f"/api/admin/template/hotfolder-directories?id={hotfolders.json[0]['id']}"
+        ).status_code
+        == 403
+    )
+    assert (
+        client_w_login.post(
+            "/api/admin/template/hotfolder-directory",
+            json={"id": hotfolders.json[0]["id"], "name": "job-2"},
+        ).status_code
+        == 403
+    )
+
+    # log over to curator
+    client_w_login.post("/api/auth/logout")
+    assert (
+        client_w_login.post(
+            "/api/auth/login", json=user1_credentials
+        ).status_code
+        == 200
+    )
 
     directories = client_w_login.get(
         f"/api/admin/template/hotfolder-directories?id={hotfolders.json[0]['id']}"

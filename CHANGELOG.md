@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.26.2] - 2025-09-23
+
+### Fixed
+
+- fixed modal header close button position to be vertically aligned with the modal title
+- fixed permissions for hotfolder-directory-related endpoints
+
 ## [0.26.0] - 2025-09-22
 
 ### Changed

@@ -303,8 +303,8 @@ class TemplateView(services.View):
         @login_required
         @requires_permission(
             *(
-                self.config.ACL.CREATE_TEMPLATE
-                + self.config.ACL.MODIFY_TEMPLATE
+                self.config.ACL.CREATE_JOBCONFIG
+                + self.config.ACL.MODIFY_JOBCONFIG
             )
         )
         def list_hotfolder_directories():
@@ -335,8 +335,8 @@ class TemplateView(services.View):
         @login_required
         @requires_permission(
             *(
-                self.config.ACL.CREATE_TEMPLATE
-                + self.config.ACL.MODIFY_TEMPLATE
+                self.config.ACL.CREATE_JOBCONFIG
+                + self.config.ACL.MODIFY_JOBCONFIG
             )
         )
         def create_hotfolder_directory():
