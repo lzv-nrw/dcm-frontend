@@ -31,7 +31,7 @@ export default function SetPasswordScreen({
 
   const newPasswordRef = useRef<HTMLInputElement>(null);
   const confirmPasswordRef = useRef<HTMLInputElement>(null);
-  const [passwordsOk, setPasswordsOk] = useState<boolean | null>(null);
+  const [newPasswordsOk, setNewPasswordsOk] = useState<boolean | null>(null);
 
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState<boolean>(false);
@@ -69,6 +69,7 @@ export default function SetPasswordScreen({
           return;
         }
         if (response.status === 401) {
+          setPasswordOk(false);
           setError(
             t(
               "Bitte überprüfen Sie Ihr aktuelles Passwort und versuchen Sie es erneut."
@@ -96,27 +97,24 @@ export default function SetPasswordScreen({
         onSubmit={(e) => {
           e.preventDefault();
           setError(null);
-
+          const password = passwordRef.current?.value.trim();
+          const newPassword = newPasswordRef.current?.value.trim();
+          const confirmPassword = confirmPasswordRef.current?.value.trim();
           // validate form data
           let valid = true;
-          if (
-            passwordRef.current?.value.trim() === "" ||
-            newPasswordRef.current?.value.trim() === "" ||
-            confirmPasswordRef.current?.value.trim() === ""
-          ) {
-            setPasswordOk(false);
-            setPasswordsOk(false);
+          if (!password || !newPassword || !confirmPassword) {
+            if (!password) setPasswordOk(false);
+            if (!newPassword || !confirmPassword) setNewPasswordsOk(false);
+
             valid = false;
             setError(t("Bitte füllen Sie alle erforderlichen Felder aus."));
-          } else if (
-            newPasswordRef.current?.value.trim() !==
-            confirmPasswordRef.current?.value.trim()
-          ) {
-            setPasswordsOk(false);
+          } else if (newPassword !== confirmPassword) {
+            setNewPasswordsOk(false);
             setError(t("Die neuen Passwörter stimmen nicht überein."));
             valid = false;
           } else {
-            setPasswordsOk(true);
+            setPasswordOk(true);
+            setNewPasswordsOk(true);
           }
 
           if (!valid) return;
@@ -145,15 +143,9 @@ export default function SetPasswordScreen({
               success_color: null,
             })}
             maxLength={textInputLimit.md}
-            onFocus={() => {
-              setPasswordOk(null);
-            }}
-            onChange={(e) => {
-              setPasswordOk(e.target?.value.trim() !== "");
-            }}
-            onBlur={(e) => {
-              setPasswordOk(e.target?.value.trim() !== "");
-            }}
+            onFocus={() => setPasswordOk(null)}
+            onChange={(e) => setPasswordOk(e.target?.value.trim() !== "")}
+            onBlur={(e) => setPasswordOk(e.target?.value.trim() !== "")}
           />
         </div>
 
@@ -167,16 +159,12 @@ export default function SetPasswordScreen({
             id="newPassword"
             ref={newPasswordRef}
             color={getTextInputColor({
-              ok: passwordsOk,
+              ok: newPasswordsOk,
               success_color: null,
             })}
             maxLength={textInputLimit.md}
-            onFocus={() => {
-              setPasswordsOk(null);
-            }}
-            onChange={(e) => {
-              setPasswordsOk(null);
-            }}
+            onFocus={() => setNewPasswordsOk(null)}
+            onChange={() => setNewPasswordsOk(null)}
           />
         </div>
         <div className="space-y-2">
@@ -189,16 +177,12 @@ export default function SetPasswordScreen({
             id="confirmPassword"
             ref={confirmPasswordRef}
             color={getTextInputColor({
-              ok: passwordsOk,
+              ok: newPasswordsOk,
               success_color: null,
             })}
             maxLength={textInputLimit.md}
-            onFocus={() => {
-              setPasswordsOk(null);
-            }}
-            onChange={(e) => {
-              setPasswordsOk(null);
-            }}
+            onFocus={() => setNewPasswordsOk(null)}
+            onChange={() => setNewPasswordsOk(null)}
           />
         </div>
 

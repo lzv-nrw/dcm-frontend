@@ -16,7 +16,7 @@ import {
 import { useFormStore } from "./store";
 import DescriptionForm from "./DescriptionForm";
 import SourceForm from "./SourceForm";
-import TargetForm from "./TargetForm";
+import ArchiveForm from "./ArchiveForm";
 import { ConfigStatus } from "../../../types";
 
 export const ErrorMessageContext = createContext<MessageHandler | undefined>(
@@ -147,8 +147,8 @@ export default function CUModal({ show, onClose }: CUModalProps) {
               {
                 tab: 2,
                 name: t("Zielsystem"),
-                Component: TargetForm,
-                ok: validator.children.target?.report?.ok,
+                Component: ArchiveForm,
+                ok: validator.children.targetArchive?.report?.ok,
               },
             ]}
             tab={tab}

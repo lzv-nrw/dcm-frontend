@@ -187,15 +187,20 @@ export default function GroupMembershipInput({
             disabled={groupSelectValue === ""}
             onClick={() => {
               if (!onChange) return;
-              if (workspaceSelectValue === "")
-                return onChange([...memberships, { id: groupSelectValue }]);
-              return onChange([
+              if (workspaceSelectValue === "") {
+                onChange([...memberships, { id: groupSelectValue }]);
+                setGroupSelectValue("");
+                return;
+              }
+              onChange([
                 ...memberships,
                 {
                   id: groupSelectValue,
                   workspace: workspaceSelectValue,
                 },
               ]);
+              setGroupSelectValue("");
+              setWorkspaceSelectValue("");
             }}
           >
             {t("Hinzufügen")}

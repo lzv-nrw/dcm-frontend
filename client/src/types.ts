@@ -94,6 +94,11 @@ export interface Hotfolder {
   description?: string;
 }
 
+export interface ArchiveConfiguration {
+  id: string;
+  name: string;
+}
+
 export type TemplateType = "oai" | "hotfolder" | "plugin";
 
 export interface Template {
@@ -107,6 +112,7 @@ export interface Template {
     | PluginTemplateInfo
     | HotfolderTemplateInfo
     | OAITemplateInfo;
+  targetArchive?: {id?: string};
   userCreated?: string;
   datetimeCreated?: string;
   userModified?: string;

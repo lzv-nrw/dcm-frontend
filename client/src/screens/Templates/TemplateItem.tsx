@@ -3,6 +3,7 @@ import { Button, Card, Spinner } from "flowbite-react";
 import { FiEdit3, FiTrash2 } from "react-icons/fi";
 
 import t from "../../utils/translation";
+import { getActionTitle } from "../../utils/util";
 import {
   HotfolderTemplateInfo,
   OAITemplateInfo,
@@ -128,6 +129,7 @@ export default function TemplateItem({ template }: TemplateItemProps) {
               <>
                 <Button
                   className="p-0 aspect-square items-center"
+                  title={t(getActionTitle("edit", "Template"))}
                   size="xs"
                   onClick={() => {
                     initFromConfig(template);
@@ -146,6 +148,7 @@ export default function TemplateItem({ template }: TemplateItemProps) {
               <>
                 <Button
                   className="p-0 aspect-square items-center"
+                  title={t(getActionTitle("delete", "Template"))}
                   size="xs"
                   disabled={loadingDelete || template.id === undefined}
                   onClick={() => {

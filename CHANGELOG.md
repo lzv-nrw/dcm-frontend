@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.30.0] - 2025-10-01
+
+### Changed
+
+- change session-refresh trigger (now on `GET-/api/auth/login`)
+
+### Added
+
+- added support for multiple target archives
+- added support for file-based welcome-message
+- added tooltips for action buttons in Jobs, Templates, and Users screens (using `title`)
+
+### Removed
+
+- removed redundant test utility: `@testing-library/user-event`
+
+### Fixed
+
+- fixed session-cookie having only "Session"-duration
+- fixed logic of role selection button
+- fixed validation logic in `SetPasswordScreen` to mark only affected inputs as invalid
+- pinned dependency versions in `client` (and regenerated the `package-lock.json`)
+
 ## [0.26.2] - 2025-09-23
 
 ### Fixed

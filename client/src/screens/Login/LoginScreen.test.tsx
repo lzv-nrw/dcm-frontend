@@ -1,7 +1,6 @@
 import { act } from "react";
 import { render, fireEvent, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
-import userEvent from "@testing-library/user-event";
 
 import t from "../../utils/translation";
 import { clearCookies } from "../../utils/session";
@@ -49,12 +48,12 @@ describe("LoginScreen", () => {
     expect(toggle).toBeInTheDocument();
     expect(toggle.children[0]).toBeInTheDocument();
 
-    userEvent.click(toggle.children[0]);
+    fireEvent.click(toggle.children[0]);
     await new Promise(process.nextTick);
 
     expect(passwordInput.getAttribute("type")).toBe("text");
 
-    userEvent.click(toggle.children[0]);
+    fireEvent.click(toggle.children[0]);
     await new Promise(process.nextTick);
 
     expect(passwordInput.getAttribute("type")).toBe("password");
@@ -80,7 +79,7 @@ describe("LoginPageRequests", () => {
           return Promise.resolve({
             ok: true,
             status: 200,
-            json: () => Promise.resolve({id: "0", username: "user0"})
+            json: () => Promise.resolve({ id: "0", username: "user0" }),
           });
         return Promise.resolve({
           ok: false,

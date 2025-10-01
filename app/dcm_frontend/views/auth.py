@@ -89,7 +89,28 @@ class AuthView(services.View):
         @login_required
         def login_test():
             """Returns 200 if already logged in."""
-            return Response("OK", mimetype="text/plain", status=200)
+            r = Response("OK", mimetype="text/plain", status=200)
+
+            # refresh session
+            self.update_session_expiration(
+                current_session.key,
+                self.config.sessions.read(current_session.key),
+            )
+            # flask-login does not seem to support refreshing the
+            # remember_token-cookie in this way
+            # do that explicitly instead:
+            if "remember_token" in request.cookies:
+                r.set_cookie(
+                    "remember_token",
+                    request.cookies["remember_token"],
+                    max_age=(
+                        34560000
+                        if self.config.SESSION_EXPIRATION_DELTA <= 0
+                        else int(self.config.SESSION_EXPIRATION_DELTA)
+                    ),
+                )
+
+            return r
 
         if (
             hasattr(self.config, "TESTING")
@@ -169,7 +190,17 @@ class AuthView(services.View):
                 f"Successful login for user '{response.data.username}'.",
                 file=sys.stderr,
             )
-            login_user(session)
+            login_user(
+                session,
+                remember=True,
+                duration=timedelta(
+                    seconds=(
+                        34560000
+                        if self.config.SESSION_EXPIRATION_DELTA <= 0
+                        else self.config.SESSION_EXPIRATION_DELTA
+                    )
+                ),
+            )
 
             return jsonify(config_jsonable), 200
 
@@ -207,7 +238,10 @@ class AuthView(services.View):
                 file=sys.stderr,
             )
             logout_user()
-            return Response("Logout", mimetype="text/plain", status=200)
+            r = Response("OK", mimetype="text/plain", status=200)
+            r.delete_cookie("session")
+            r.delete_cookie("remember_token")
+            return r
 
     def configure_bp(self, bp: Blueprint, *args, **kwargs) -> None:
         self._add_test_endpoints(bp)

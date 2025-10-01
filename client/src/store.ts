@@ -11,6 +11,7 @@ import {
   JobConfig,
   JobInfo,
   RecordInfo,
+  ArchiveConfiguration,
 } from "./types";
 import { WidgetConfig } from "./components/Widgets/types";
 import { defaultJSONFetch } from "./utils/api";
@@ -73,6 +74,12 @@ export interface TemplateStore {
   }) => void;
   hotfolders: Record<string, Hotfolder>;
   fetchHotfolders: (p: {
+    useACL?: boolean;
+    onSuccess?: () => void;
+    onFail?: (error: string) => void;
+  }) => void;
+  archives: Record<string, ArchiveConfiguration>;
+  fetchArchives: (p: {
     useACL?: boolean;
     onSuccess?: () => void;
     onFail?: (error: string) => void;
@@ -284,7 +291,13 @@ const useGlobalStore = create<GlobalStore>()((set, get) => ({
     },
     hotfolders: {},
     fetchHotfolders: ({ useACL = false, onSuccess, onFail }) => {
-      if (useACL && !get().session.acl?.READ_TEMPLATE) return;
+      if (
+        useACL &&
+        !(
+          get().session.acl?.READ_TEMPLATE || get().session.acl?.MODIFY_TEMPLATE
+        )
+      )
+        return;
       defaultJSONFetch(
         "/api/admin/template/hotfolders",
         t("Hotfoldern"),
@@ -294,6 +307,34 @@ const useGlobalStore = create<GlobalStore>()((set, get) => ({
               ...state.template,
               hotfolders: Object.fromEntries(
                 json.map((hotfolder: Hotfolder) => [hotfolder.id, hotfolder])
+              ),
+            },
+          })),
+        onSuccess,
+        onFail
+      );
+    },
+    archives: {},
+    fetchArchives: ({ useACL = false, onSuccess, onFail }) => {
+      if (
+        useACL &&
+        !(
+          get().session.acl?.READ_TEMPLATE || get().session.acl?.MODIFY_TEMPLATE
+        )
+      )
+        return;
+      defaultJSONFetch(
+        "/api/admin/template/archives",
+        t("Archiv-Konfiguration"),
+        (json) =>
+          set((state) => ({
+            template: {
+              ...state.template,
+              archives: Object.fromEntries(
+                json.map((archive: ArchiveConfiguration) => [
+                  archive.id,
+                  archive,
+                ])
               ),
             },
           })),

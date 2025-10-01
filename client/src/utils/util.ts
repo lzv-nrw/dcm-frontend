@@ -102,3 +102,34 @@ export function compareObjects(
     compareToObject(a, b, laxArrayOrder) && compareToObject(b, a, laxArrayOrder)
   );
 }
+
+type ActionType = "create" | "edit" | "delete" | "read" | "run" | "reset";
+
+const ACTION_LABELS: Record<ActionType, string> = {
+  create: "erstellen",
+  edit: "bearbeiten",
+  delete: "löschen",
+  read: "ansehen",
+  run: "ausführen",
+  reset: "zurücksetzen",
+};
+
+/**
+ * Returns a common action label for use in buttons, tooltips, or other UI elements.
+ *
+ * If a context is provided (e.g., "Arbeitsbereich", "Template"), it is combined with the action.
+ * Otherwise, only the capitalized action verb is returned (e.g., "Löschen").
+ *
+ * @param action - The type of action, e.g. "create", "edit", "delete", etc.
+ * @param context - Optional noun or subject the action applies to, like "Workspace" or "Template".
+ * @returns A composed action title string, e.g. "Arbeitsbereich löschen" or "Löschen".
+ */
+export function getActionTitle(action: ActionType, context?: string): string {
+  if (!context)
+    return (
+      ACTION_LABELS[action].charAt(0).toUpperCase() +
+      ACTION_LABELS[action].slice(1)
+    );
+
+  return `${context} ${ACTION_LABELS[action]}`;
+}

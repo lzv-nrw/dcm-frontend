@@ -53,6 +53,20 @@ export default function TemplatesScreen({
     // eslint-disable-next-line
     [useACL]
   );
+  // * fetch all archive configurations on first load
+  useEffect(
+    () =>
+      templateStore.fetchArchives({
+        useACL: useACL,
+        onFail: (msg) =>
+          errorMessageHandler.pushMessage({
+            id: "fetch-archives",
+            text: msg,
+          }),
+      }),
+    // eslint-disable-next-line
+    [useACL]
+  );
   // * fetch all templateIds on first load
   useEffect(
     () =>

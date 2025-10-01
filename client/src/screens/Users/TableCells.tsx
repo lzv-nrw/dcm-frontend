@@ -3,6 +3,7 @@ import { Table, List, Button, Spinner } from "flowbite-react";
 import { FiEdit3, FiTrash2, FiDelete } from "react-icons/fi";
 
 import t from "../../utils/translation";
+import { getActionTitle } from "../../utils/util";
 import { User } from "../../types";
 import useGlobalStore from "../../store";
 import ConfirmModal from "../../components/ConfirmModal";
@@ -125,6 +126,7 @@ export function ActionsCell({ user }: TableCellProps) {
           <>
             <Button
               className="p-0 aspect-square items-center"
+              title={t(getActionTitle("edit", "Nutzer"))}
               size="xs"
               onClick={() => {
                 if (user === undefined) {
@@ -149,6 +151,7 @@ export function ActionsCell({ user }: TableCellProps) {
           <>
             <Button
               className="p-0 aspect-square items-center"
+              title={t(getActionTitle("delete", "Nutzer"))}
               size="xs"
               disabled={loadingDelete}
               onClick={() => {
@@ -221,6 +224,7 @@ export function ActionsCell({ user }: TableCellProps) {
           <>
             <Button
               className="p-0 aspect-square items-center"
+              title={t(getActionTitle("reset", "Passwort"))}
               size="xs"
               disabled={loadingReset || user.id === me?.id}
               onClick={() => {

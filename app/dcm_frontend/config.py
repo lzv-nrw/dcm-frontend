@@ -298,4 +298,11 @@ class AppConfig(BaseConfig):
                 "user_configs", "native", {"backend": "memory"}
             )
 
+        try:
+            self.WELCOME_MESSAGE_TEMPLATE = Path(
+                self.WELCOME_MESSAGE_TEMPLATE
+            ).read_text(encoding="utf-8")
+        except (OSError, FileNotFoundError):
+            pass
+
         super().__init__()

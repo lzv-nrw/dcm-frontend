@@ -112,7 +112,6 @@ def app_factory(config: AppConfig):
         if not view_auth.check_session_expiration(session):
             config.sessions.delete(session_key)
             return None
-        view_auth.update_session_expiration(session_key, session)
 
         # get associated user-config
         if config.SESSION_DISABLE_USER_CACHING:

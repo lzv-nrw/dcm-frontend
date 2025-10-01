@@ -33,11 +33,11 @@ import {
   validateType,
 } from "./SourceForm";
 import {
-  Target,
-  TargetFormChildren,
-  TargetFormValidator,
-  validateTargetId,
-} from "./TargetForm";
+  Archive,
+  ArchiveFormChildren,
+  ArchiveFormValidator,
+  validateArchiveId,
+} from "./ArchiveForm";
 
 export interface FormData {
   id?: string;
@@ -46,10 +46,10 @@ export interface FormData {
   workspaceId?: string;
   description?: Description;
   source?: Source;
-  target?: Target;
+  targetArchive?: Archive;
 }
 
-type FormChildren = "description" | "source" | "target";
+type FormChildren = "description" | "source" | "targetArchive";
 type FormValidator = Validator<FormChildren>;
 
 export interface FormStore extends FormData {
@@ -63,7 +63,7 @@ export interface FormStore extends FormData {
   setWorkspaceId: (id?: string) => void;
   setDescription: (description: Description, replace?: boolean) => void;
   setSource: (source: Source, replace?: boolean) => void;
-  setTarget: (target: Target, replace?: boolean) => void;
+  setTargetArchive: (targetArchive: Archive, replace?: boolean) => void;
   initFromConfig: (template: Template) => void;
   formatToConfig: (status: ConfigStatus) => Template;
 }
@@ -147,21 +147,21 @@ export const useFormStore = create<FormStore>()((set, get) => ({
           },
         },
       } as SourceFormValidator,
-      target: {
-        validate: createValidateWithChildren<TargetFormChildren>(
-          () => get().validator.children?.target,
+      targetArchive: {
+        validate: createValidateWithChildren<ArchiveFormChildren>(
+          () => get().validator.children?.targetArchive,
           (strict) => {
             if (strict) return { ok: true };
             return {};
           }
         ),
         children: {
-          targetId: {
+          id: {
             validate: (strict: boolean) =>
-              validateTargetId(strict, get().target?.targetId),
+              validateArchiveId(strict, get().targetArchive?.id),
           },
         },
-      } as TargetFormValidator,
+      } as ArchiveFormValidator,
     },
   },
   setCurrentValidationReport: (report) =>
@@ -180,8 +180,10 @@ export const useFormStore = create<FormStore>()((set, get) => ({
       : set({ description: { ...get().description, ...description } }),
   setSource: (source, replace = false) =>
     replace ? set({ source }) : set({ source: { ...get().source, ...source } }),
-  setTarget: (target, replace = false) =>
-    replace ? set({ target }) : set({ target: { ...get().target, ...target } }),
+  setTargetArchive: (targetArchive, replace = false) =>
+    replace
+      ? set({ targetArchive })
+      : set({ targetArchive: { ...get().targetArchive, ...targetArchive } }),
   initFromConfig: (template: Template) => {
     const store = get();
     store.setId(template.id);
@@ -253,10 +255,7 @@ export const useFormStore = create<FormStore>()((set, get) => ({
       default:
       // nothing to do
     }
-    // FIXME: this is only a placeholder to allow editing a template with
-    // linked jobs (where the otherwise undefined target-select is locked
-    // but required for submission)
-    store.setTarget({ targetId: "rosettaDummy" }, true);
+    store.setTargetArchive({ ...template.targetArchive }, true);
   },
   formatToConfig: (status) => {
     const store = get();
@@ -296,8 +295,7 @@ export const useFormStore = create<FormStore>()((set, get) => ({
       ...store.description,
       type: store.source?.type,
       additionalInformation,
-      // TODO: add targetId to template-object
-      //...formStore.target,
+      targetArchive: store.targetArchive,
     };
   },
 }));

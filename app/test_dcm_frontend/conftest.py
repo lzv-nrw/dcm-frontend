@@ -1,6 +1,7 @@
 from pathlib import Path
 from hashlib import md5
 from uuid import uuid4
+from json import dumps
 
 import pytest
 from dcm_common.services.tests import (
@@ -146,11 +147,28 @@ def _backend_hotfolder(temp_folder):
     return hotfolder_path
 
 
+@pytest.fixture(name="backend_archives")
+def _backend_archives():
+    return [
+        {
+            "id": "test-archive",
+            "name": "Test Archive",
+            "type": "rosetta-rest-api-v0",
+            "details": {
+                "url": "",
+                "materialFlow": "",
+                "producer": "",
+                "basicAuth": "Authorization: Basic aaa",
+            },
+            "transferDestinationId": "",
+        }
+    ]
+
+
 @pytest.fixture(name="backend_config")
-def _backend_config(fixtures, backend_hotfolder):
+def _backend_config(backend_hotfolder, backend_archives):
 
     class Config(BackendConfig):
-        ROSETTA_AUTH_FILE = fixtures / ".rosetta/rosetta_auth"
         TESTING = True
         DB_LOAD_SCHEMA = True
         DB_GENERATE_DEMO = True
@@ -168,6 +186,8 @@ def _backend_config(fixtures, backend_hotfolder):
             + str(backend_hotfolder)
             + '", "name": "0"}]'
         )
+        ARCHIVES_SRC = dumps(backend_archives)
+        ARCHIVE_CONTROLLER_DEFAULT_ARCHIVE = backend_archives[0]["id"]
 
     return Config
 

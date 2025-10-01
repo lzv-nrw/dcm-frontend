@@ -348,3 +348,17 @@ def test_delete_template(backend, client_w_login, minimal_template_config):
         == 200
     )
     assert template_id not in client_w_login.get("/api/admin/templates").json
+
+
+def test_template_archives(
+    backend, backend_archives, client_w_login
+):
+    """Test of /template/archives-endpoints."""
+
+    archives = client_w_login.get("/api/admin/template/archives")
+    assert archives.status_code == 200
+    assert len(archives.json) == len(backend_archives)
+    assert archives.json[0] == {
+        "id": backend_archives[0]["id"],
+        "name": backend_archives[0]["name"],
+    }

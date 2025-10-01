@@ -10,18 +10,19 @@ import {
   ValidationReport,
   Validator,
 } from "../../../utils/forms";
+import useGlobalStore from "../../../store";
 import { FormSectionComponentProps } from "../../../components/SectionedForm";
 import { useFormStore } from "./store";
 
-export type TargetFormChildren = "targetId";
-export type TargetFormValidator = Validator<TargetFormChildren>;
+export type ArchiveFormChildren = "archiveId";
+export type ArchiveFormValidator = Validator<ArchiveFormChildren>;
 
-export function validateTargetId(
+export function validateArchiveId(
   strict: boolean,
-  targetId: string | undefined
+  archiveId: string | undefined
 ): ValidationReport | undefined {
-  if (targetId === undefined && !strict) return;
-  if (targetId === undefined || targetId === "")
+  if (archiveId === undefined && !strict) return;
+  if (archiveId === undefined || archiveId === "")
     return {
       ok: false,
       errors: [ValidationMessages.EmptyValue("Zielsystem")],
@@ -29,30 +30,35 @@ export function validateTargetId(
   return { ok: true };
 }
 
-export interface Target {
-  // TODO: fix after adding targetId to Template-interface
-  targetId?: string;
+export interface Archive {
+  id?: string;
 }
 
-export default function TargetForm({
+export default function ArchiveForm({
   name,
   active,
 }: FormSectionComponentProps) {
-  const targetSystems = {
-    // hbzRosetta: { id: "hbzRosetta", name: "hbz-Rosetta" },
-    rosettaDummy: { id: "rosettaDummy", name: "Rosetta-Dummy" },
-  };
-  const [target, setTarget] = useFormStore(
-    useShallow((state) => [state.target, state.setTarget])
+  const archives = useGlobalStore((state) => state.template.archives);
+  const [targetArchive, setTargetArchive] = useFormStore(
+    useShallow((state) => [state.targetArchive, state.setTargetArchive])
   );
   const linkedJobs = useFormStore((state) => state.linkedJobs);
   const [validator, setCurrentValidationReport] = useFormStore(
     useShallow((state) => [state.validator, state.setCurrentValidationReport])
   );
 
+  const [initialTargetArchiveUndefined, setInitialTargetArchiveUndefined] =
+    useState(true);
   const [formVisited, setFormVisited] = useState(active);
 
   const [focus, setFocus] = useState("");
+
+  // handle state to recognise whether target archive is already set at mount
+  useEffect(
+    () => setInitialTargetArchiveUndefined(targetArchive?.id === undefined),
+    // eslint-disable-next-line
+    []
+  );
 
   // track visited
   useEffect(() => {
@@ -60,55 +66,57 @@ export default function TargetForm({
   }, [active]);
 
   // handle validation
-  // * targetId
+  // * archiveId
   useEffect(() => {
     setCurrentValidationReport({
       children: {
-        target: {
+        targetArchive: {
           children: {
-            targetId:
-              validator.children?.target?.children?.targetId?.validate(false),
+            id: validator.children?.targetArchive?.children?.id?.validate(
+              false
+            ),
           },
         },
       },
     });
     // eslint-disable-next-line
-  }, [target?.targetId]);
+  }, [targetArchive?.id]);
   // * form section
   useEffect(() => {
     if (!formVisited) return;
-    if (validator.children?.target?.report?.ok === undefined && active) return;
+    if (validator.children?.targetArchive?.report?.ok === undefined && active)
+      return;
     setCurrentValidationReport({
       children: {
-        target: validator.children?.target?.validate(true),
+        targetArchive: validator.children?.targetArchive?.validate(true),
       },
     });
     // eslint-disable-next-line
-  }, [active, target?.targetId]);
+  }, [active, targetArchive?.id]);
 
   return (
     <>
       <h3 className="text-xl font-bold">{name}</h3>
       <div className="flex flex-col w-full space-y-2">
         <div className="space-y-2">
-          <Label htmlFor="targetId" value="" />
+          <Label htmlFor="targetArchiveId" value="" />
           <div className="flex flex-row space-x-2 items-center">
             <Select
-              id="targetId"
-              disabled={(linkedJobs ?? 0) > 0}
-              value={target?.targetId ?? ""}
+              id="targetArchiveId"
+              disabled={!initialTargetArchiveUndefined && (linkedJobs ?? 0) > 0}
+              value={targetArchive?.id ?? ""}
               color={getTextInputColor({
                 ok:
-                  focus === "targetId"
+                  focus === "archiveId"
                     ? undefined
-                    : validator.children.target?.children.targetId?.report?.ok,
+                    : validator.children.targetArchive?.children.id?.report?.ok,
               })}
-              onChange={(e) => setTarget({ targetId: e.target.value })}
+              onChange={(e) => setTargetArchive({ id: e.target.value })}
               onFocus={(e) => setFocus(e.target.id)}
               onBlur={() => setFocus("")}
             >
               <option value="">{t("Bitte auswählen")}</option>
-              {Object.values(targetSystems)
+              {Object.values(archives)
                 .sort((a, b) =>
                   a.name.toLowerCase() > b.name.toLowerCase() ? 1 : -1
                 )
@@ -117,8 +125,17 @@ export default function TargetForm({
                     {name}
                   </option>
                 ))}
+              {targetArchive?.id && archives[targetArchive.id] === undefined ? (
+                <option value={targetArchive.id} disabled>
+                  {t(
+                    `Unbekanntes Zielsystem '${targetArchive.id}' (nicht mehr verfügbar)`
+                  )}
+                </option>
+              ) : null}
             </Select>
-            {(linkedJobs ?? 0) > 0 && <FiLock />}
+            {!initialTargetArchiveUndefined && (linkedJobs ?? 0) > 0 && (
+              <FiLock />
+            )}
           </div>
         </div>
       </div>

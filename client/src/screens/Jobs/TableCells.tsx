@@ -4,7 +4,7 @@ import { Table, Button, Spinner } from "flowbite-react";
 import { FiPlay, FiEye, FiEdit3, FiTrash2 } from "react-icons/fi";
 
 import t from "../../utils/translation";
-import { formatJobConfigStatus } from "../../utils/util";
+import { formatJobConfigStatus, getActionTitle } from "../../utils/util";
 import { reformatDatetime } from "../../utils/dateTime";
 import { JobConfig } from "../../types";
 import useGlobalStore from "../../store";
@@ -245,6 +245,7 @@ export function ActionsCell({ config }: TableCellProps) {
             <Button
               className="p-0 aspect-square items-center"
               size="xs"
+              title={t(getActionTitle("run", "Job"))}
               disabled={loadingJobExecution || config.status !== "ok"}
               onClick={() => {
                 // fetch config to get current latestExec
@@ -312,6 +313,7 @@ export function ActionsCell({ config }: TableCellProps) {
         {acl?.READ_JOBCONFIG ? (
           <Button
             className="p-0 aspect-square items-center"
+            title={t(getActionTitle("read", "Job"))}
             size="xs"
             onClick={() => navigate(`/job-details?id=${config.id}`)}
           >
@@ -323,6 +325,7 @@ export function ActionsCell({ config }: TableCellProps) {
             <Button
               className="p-0 aspect-square items-center"
               size="xs"
+              title={t(getActionTitle("edit", "Job"))}
               onClick={() => {
                 if (
                   config === undefined ||
@@ -360,6 +363,7 @@ export function ActionsCell({ config }: TableCellProps) {
           <>
             <Button
               className="p-0 aspect-square items-center"
+              title={t(getActionTitle("delete", "Job"))}
               size="xs"
               disabled={loadingDelete}
               onClick={() => {

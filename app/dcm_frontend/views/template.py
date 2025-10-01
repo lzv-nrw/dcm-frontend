@@ -354,3 +354,34 @@ class TemplateView(services.View):
                 mimetype="text/plain",
                 status=response.status_code,
             )
+
+        @bp.route("/template/archives", methods=["GET"])
+        @login_required
+        @requires_permission(
+            *(
+                self.config.ACL.CREATE_TEMPLATE
+                + self.config.ACL.MODIFY_TEMPLATE
+            )
+        )
+        def list_archives():
+            response = call_backend(
+                endpoint=(
+                    self.backend_template_api.list_archives_with_http_info
+                ),
+                request_timeout=self.config.BACKEND_TIMEOUT,
+            )
+            if response.status_code == 200:
+                return (
+                    jsonify(
+                        [
+                            archive.model_dump(exclude_none=True)
+                            for archive in response.data
+                        ]
+                    ),
+                    200,
+                )
+            return Response(
+                response.fail_reason,
+                mimetype="text/plain",
+                status=response.status_code
+            )
