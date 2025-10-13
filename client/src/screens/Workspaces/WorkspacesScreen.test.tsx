@@ -41,9 +41,10 @@ test("shows modal for new workspaces", async () => {
 
   // assert
   expect(
-    Object.keys(workspaces.getAllByText(t("Arbeitsbereich erstellen")))
-  ).toHaveLength(2);
+    workspaces.getAllByText(t("Arbeitsbereich ") + t("erstellen")).length
+  ).toBeGreaterThan(0);
   expect(workspaces.getByText(t("Titel*"))).toBeInTheDocument();
+  expect(workspaces.getByText(t("Erstellen"))).toBeInTheDocument();
 });
 
 test("load data from API", async () => {

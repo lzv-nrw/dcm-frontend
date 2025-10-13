@@ -3,7 +3,6 @@ import { useShallow } from "zustand/react/shallow";
 import {
   Button,
   TextInput,
-  Alert,
   Timeline,
   TimelineItem,
   TimelinePoint,
@@ -32,6 +31,7 @@ import useGlobalStore from "../../store";
 import { credentialsValue, devMode, host } from "../../App";
 import Modal from "../../components/Modal";
 import { reformatDatetime } from "../../utils/dateTime";
+import MessageBox, { useMessageHandler } from "../../components/MessageBox";
 
 export const StageOrder = [
   "build_ip",
@@ -144,13 +144,18 @@ function getValueOrFirstFromArray(
   return valueOrArray[0];
 }
 
+const MAX_ERRORS_BEFORE_STOP = 5;
+const FETCH_JOB_INFO_INTERVAL = 1000;
+
 export default function MonitorJobModal({
   show,
   initialToken,
   onClose,
 }: MonitorJobModalProps) {
+  const errorMessageHandler = useMessageHandler([]);
+  const [fetchFailedAndHasBeenStopped, setFetchFailedAndHasBeenStopped] =
+    useState(false);
   const [showNotFoundError, setShowNotFoundError] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
   const [token, setToken] = useState(initialToken ?? "");
   const [jobInfos, fetchJobInfo] = useGlobalStore(
     useShallow((state) => [state.job.jobInfos, state.job.fetchJobInfo])
@@ -161,6 +166,12 @@ export default function MonitorJobModal({
   const reportDetailsContainerRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
 
+  // reset modal state
+  useEffect(() => {
+    errorMessageHandler.clearMessages();
+    setFetchFailedAndHasBeenStopped(false);
+    // eslint-disable-next-line
+  }, [show]);
   // handle scroll position
   // * scroll to bottom when switching tabs
   useEffect(() => {
@@ -197,14 +208,21 @@ export default function MonitorJobModal({
   }, [initialToken, token]);
 
   // fetching job info
-  function fetchThisJobInfo() {
+  function fetchThisJobInfo(onFail?: (error: string) => void) {
     fetchJobInfo({
       token,
       useACL: true,
       forceReload: true,
-      onSuccess: () => setError(null),
-      onFail: (e) => {
-        setError(e);
+      onSuccess: () => {
+        errorMessageHandler.removeMessage("fetch-job-info-failed");
+        errorMessageHandler.removeMessage("fetch-job-info-error");
+      },
+      onFail: (error) => {
+        onFail?.(error);
+        errorMessageHandler?.pushMessage({
+          id: "fetch-job-info-failed",
+          text: error,
+        });
       },
     });
   }
@@ -217,12 +235,27 @@ export default function MonitorJobModal({
   // * run fetch on interval
   useEffect(() => {
     if (!show || !token || token?.length !== 36) return;
+    let errorCounter = 0;
     const interval = setInterval(() => {
       if (["aborted", "completed"].includes(jobInfos[token]?.status ?? "")) {
-        setError(null);
         clearInterval(interval);
-      } else fetchThisJobInfo();
-    }, 1000);
+      } else
+        fetchThisJobInfo(() => {
+          errorCounter++;
+        });
+
+      if (errorCounter >= MAX_ERRORS_BEFORE_STOP) {
+        setFetchFailedAndHasBeenStopped(true);
+        errorMessageHandler.pushMessage({
+          id: "fetch-job-info-error",
+          text: t(
+            `Abruf der Ergebnisse für den Job '${token}' ist wiederholt fehlgeschlagen. Bitte versuchen Sie es später erneut.`
+          ),
+        });
+        clearInterval(interval);
+        return;
+      }
+    }, FETCH_JOB_INFO_INTERVAL);
     return () => clearInterval(interval);
     // eslint-disable-next-line
   }, [show, token, jobInfos]);
@@ -255,11 +288,24 @@ export default function MonitorJobModal({
       <Modal.Header title={t("Verfolge Job ") + (token ? `'${token}'` : "")} />
       <Modal.Body className="py-4">
         <div className="space-y-2">
+          {token?.length === 36 &&
+          errorMessageHandler.messages.length > 0 &&
+          (showNotFoundError ||
+            !errorMessageHandler.messages.some((msg) =>
+              msg.text.toUpperCase().includes("NOT FOUND")
+            )) ? (
+            <MessageBox
+              className="my-2"
+              messages={errorMessageHandler.messages}
+              messageTitle={t("Ein Fehler ist aufgetreten")}
+              onDismiss={errorMessageHandler.clearMessages}
+            />
+          ) : null}
           {devMode && (
             <>
               <h3 className="font-semibold">{t("Token")}</h3>
               <TextInput
-                className="w-72"
+                className="w-80"
                 id="token"
                 value={token}
                 placeholder="Job Token"
@@ -270,17 +316,15 @@ export default function MonitorJobModal({
               />
             </>
           )}
-          {token?.length === 36 &&
-          error &&
-          // heuristically determine whether error message should be displayed
-          (showNotFoundError || !error.includes("NOT FOUND")) ? (
-            <Alert color="failure">{error}</Alert>
-          ) : null}
           {
             // heuristically determine whether spinner should be displayed
             token !== "" &&
+              !fetchFailedAndHasBeenStopped &&
               jobInfos[token] === undefined &&
-              (error === null || error.includes("NOT FOUND")) && (
+              (errorMessageHandler.messages.length !== 0 ||
+                errorMessageHandler.messages.some((msg) =>
+                  msg.text.toUpperCase().includes("NOT FOUND")
+                )) && (
                 <div className="flex w-full justify-items-center justify-center">
                   <Spinner size="xl" />
                 </div>
@@ -700,9 +744,7 @@ export default function MonitorJobModal({
                   .then(async (response) => {
                     setLoadingAbort(false);
                     if (!response.ok) {
-                      throw new Error(
-                        `Unexpected response (${await response.text()}).`
-                      );
+                      throw new Error(await response.text());
                     }
                     fetchJobInfo({
                       token,
@@ -712,7 +754,12 @@ export default function MonitorJobModal({
                   })
                   .catch((error) => {
                     setLoadingAbort(false);
-                    setError(error.message);
+                    errorMessageHandler.pushMessage({
+                      id: `abort-job`,
+                      text: `${t("Fehler beim Abbrechen eines Jobs (<id>)")}: ${
+                        error.message
+                      }`,
+                    });
                   });
               }}
             >

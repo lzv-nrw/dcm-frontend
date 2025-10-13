@@ -12,9 +12,18 @@ import {
   JobInfo,
   RecordInfo,
   ArchiveConfiguration,
+  AppInfo,
 } from "./types";
 import { WidgetConfig } from "./components/Widgets/types";
 import { defaultJSONFetch } from "./utils/api";
+
+export interface AppInfoStore {
+  info?: AppInfo;
+  fetchInfo: (p: {
+    onSuccess?: () => void;
+    onFail?: (error: string) => void;
+  }) => void;
+}
 
 export interface SessionStore {
   loggedIn?: boolean;
@@ -133,6 +142,7 @@ export interface JobStore {
 }
 
 interface GlobalStore {
+  app: AppInfoStore;
   session: SessionStore;
   permission: PermissionConfigStore;
   user: UserStore;
@@ -142,6 +152,22 @@ interface GlobalStore {
 }
 
 const useGlobalStore = create<GlobalStore>()((set, get) => ({
+  app: {
+    fetchInfo: ({ onSuccess, onFail }) =>
+      defaultJSONFetch(
+        "/api/misc/app-info",
+        t("Anwendungsinformation"),
+        (json) =>
+          set((state) => ({
+            app: {
+              ...state.app,
+              info: json,
+            },
+          })),
+        onSuccess,
+        onFail
+      ),
+  },
   session: {
     loggedIn: undefined,
     setLoggedIn: (loggedIn) =>

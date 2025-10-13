@@ -9,6 +9,7 @@ import useGlobalStore from "../../store";
 import { host, credentialsValue } from "../../App";
 import { clearCookies } from "../../utils/session";
 import ContextMenu from "../ContextMenu";
+import DCMAvatar from "../DCMAvatar";
 
 export interface CustomNavlinks {
   path: string;
@@ -29,10 +30,11 @@ export const NavLinksList: CustomNavlinks[] = [
 ];
 
 export default function CustomNavbar() {
-  const { me, acl } = useGlobalStore(
+  const { me, acl, useGravatar } = useGlobalStore(
     useShallow((state) => ({
       me: state.session.me,
       acl: state.session.acl,
+      useGravatar: state.app.info?.useGravatar ?? false,
     }))
   );
   const location = useLocation();
@@ -98,7 +100,15 @@ export default function CustomNavbar() {
           ]}
         >
           <div className="hover:cursor-pointer">
-            <Avatar alt="user avatar" img={createGravatar(me?.email)} rounded />
+            {useGravatar ? (
+              <Avatar
+                alt="user avatar"
+                img={createGravatar(me?.email)}
+                rounded
+              />
+            ) : (
+              <DCMAvatar user={me ?? { id: "" }} />
+            )}
           </div>
         </ContextMenu>
         <Navbar.Toggle />

@@ -5,6 +5,8 @@ import { FiX } from "react-icons/fi";
 import { createGravatar } from "../utils/util";
 import { PublicUserInfo } from "../types";
 import { credentialsValue, host } from "../App";
+import useGlobalStore from "../store";
+import DCMAvatar from "./DCMAvatar";
 
 interface UserBadge {
   title: string;
@@ -30,6 +32,9 @@ export default function UserDisplay({
   icon,
   onClick,
 }: UserDisplayProps) {
+  const useGravatar = useGlobalStore(
+    (state) => state.app.info?.useGravatar ?? false
+  );
   const [userInfoLoading, setUserInfoLoading] = useState(false);
   const [userInfo, setUserInfo] = useState<PublicUserInfo | undefined>(
     initialUserInfo
@@ -78,12 +83,16 @@ export default function UserDisplay({
       onClick={onClick}
     >
       <div className="flex items-center">
-        <Avatar
-          className="absolute"
-          alt="user avatar"
-          img={userInfo.email ? createGravatar(userInfo.email) : undefined}
-          rounded
-        />
+        {useGravatar ? (
+          <Avatar
+            className="absolute"
+            alt="user avatar"
+            img={userInfo.email ? createGravatar(userInfo.email) : undefined}
+            rounded
+          />
+        ) : (
+          <DCMAvatar className="absolute" user={userInfo} />
+        )}
         <div className="flex flex-col items-start ml-12 overflow-x-hidden space-y-1">
           <p className="dcm-clamp-text">
             {userInfo.firstname + " " + userInfo.lastname}

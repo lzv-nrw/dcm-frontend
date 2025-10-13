@@ -14,8 +14,8 @@ from dcm_frontend import app_factory
 @pytest.mark.parametrize(
     "key_set", (True, False), ids=["key-set", "key-unset"]
 )
-def test_secret_key(key_set, testing_config):
-    """Test endpoint `GET-/api/misc/secret-key`."""
+def test_app_info_secret_key(key_set, testing_config):
+    """Test endpoint `GET-/api/misc/app-info`."""
 
     class ThisTestingConfig(testing_config):
         SECRET_KEY_OK = key_set
@@ -23,9 +23,8 @@ def test_secret_key(key_set, testing_config):
     assert (
         app_factory(ThisTestingConfig())
         .test_client()
-        .get("/api/misc/secret-key")
-        .status_code
-        == 200 if key_set else 404
+        .get("/api/misc/app-info")
+        .json["secretKeyOk"] is key_set
     )
 
 

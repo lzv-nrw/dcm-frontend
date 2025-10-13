@@ -3,6 +3,30 @@ import md5 from "md5";
 import { JobConfig } from "../types";
 
 /**
+ * Returns a random number generator that can be seeded with a string.
+ * @param seed string to used as seed
+ * @returns random-function which when called returns a float large or
+ * equal 0 and smaller than 1.
+ */
+export function randomNumberGenerator(seed: string) {
+  const SEED =
+    0 +
+    Array.from(seed)
+      .map((char, index) => 10 ** index * char.charCodeAt(0))
+      .reduce((a, b) => a + b, 0);
+  let a = SEED | 0;
+  let b = SEED | 0;
+
+  function randInt() {
+    a = (a * 67307) & 0xffff;
+    b = (b * 67427) & 0xffff;
+    return a ^ (b << 15);
+  }
+
+  return { randInt, randFloat: () => randInt() / 2147483648 };
+}
+
+/**
  * Returns https://www.gravatar.com profile-url.
  * @param email email identifier
  * @param size image size

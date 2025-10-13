@@ -14,17 +14,17 @@ describe("App component render", () => {
     useGlobalStore.setState(useGlobalStore.getInitialState());
   });
 
-  test.each([
-    { ok: true, status: 200 },
-    { ok: false, status: 404 },
-  ])(
+  test.each([true, false])(
     "display the SecretKeyBanner if the the SECRET_KEY is set",
-    async ({ ok, status }) => {
+    async (ok) => {
       // mock API
       jest.spyOn(global, "fetch").mockImplementation(
         jest.fn((url: string) => {
-          if (url.endsWith("api/misc/secret-key"))
-            return Promise.resolve({ ok, status });
+          if (url.endsWith("api/misc/app-info"))
+            return Promise.resolve({
+              ok: true,
+              json: () => Promise.resolve({ secretKeyOk: ok }),
+            });
           if (url.endsWith("api/misc/welcome"))
             return Promise.resolve({
               ok: true,

@@ -49,12 +49,19 @@ class MiscellaneousView(services.View):
         }
 
     def configure_bp(self, bp: Blueprint, *args, **kwargs) -> None:
-        @bp.route("/secret-key", methods=["GET"])
-        def secret_key():
-            """Returns 200 if environment variable `SECRET_KEY` is set."""
-            if self.config.SECRET_KEY_OK:
-                return Response("OK", mimetype="text/plain", status=200)
-            return Response("Unavailable", mimetype="text/plain", status=404)
+        @bp.route("/app-info", methods=["GET"])
+        def configuration():
+            """Returns app-info."""
+            return (
+                jsonify(
+                    {
+                        "version": self.config.VERSION,
+                        "secretKeyOk": self.config.SECRET_KEY_OK,
+                        "useGravatar": self.config.USE_GRAVATAR,
+                    }
+                ),
+                200,
+            )
 
         self._add_build_info_endpoint(bp)
         self._add_welcome_endpoint(bp)

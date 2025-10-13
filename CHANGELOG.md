@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.34.0] - 2025-10-13
+
+### Changed
+
+- changed `fetchJobInfo`-requests in `MonitorJobModal` to stop after multiple successive failed attempts
+- improved error handling in `MonitorJobModal` to support multiple messages at once
+- renamed component `NewWorkspaceModal` to `CUModal`
+
+### Added
+
+- added `DCMAvatar`-component as default avatar
+- added seedable pseudo-random number generator
+- added workspace renaming functionality in `CUModal`
+
+### Fixed
+
+- fixed parsing of `devMode`-cookie
+- fixed layout in `AddUserModal` to avoid nested vertical scrolling
+
 ## [0.30.0] - 2025-10-01
 
 ### Changed

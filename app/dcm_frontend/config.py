@@ -38,6 +38,8 @@ class AppConfig(BaseConfig):
         """,
     )
 
+    USE_GRAVATAR = int(os.environ.get("USE_GRAVATAR", 0)) == 1
+
     # ------ FLASK-LOGIN ------
     SECRET_KEY_OK = os.environ.get("SECRET_KEY") is not None
     SECRET_KEY = (

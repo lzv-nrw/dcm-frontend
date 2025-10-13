@@ -28,7 +28,7 @@ export const credentialsValue = process.env.REACT_APP_API_URL
   : "same-origin";
 export const devMode = document.cookie
   .split(";")
-  .find((cookie) => cookie.startsWith("dev=yes"))
+  .find((cookie) => cookie.trim().startsWith("dev=yes"))
   ? true
   : false;
 
@@ -48,18 +48,28 @@ function SecretKeyBanner() {
 }
 
 export default function App() {
-  const { loggedIn, me, acl, setLoggedIn, fetchMe, fetchACL } = useGlobalStore(
+  const {
+    loggedIn,
+    me,
+    acl,
+    appInfo,
+    setLoggedIn,
+    fetchMe,
+    fetchACL,
+    fetchAppInfo,
+  } = useGlobalStore(
     useShallow((state) => ({
       loggedIn: state.session.loggedIn,
       me: state.session.me,
       acl: state.session.acl,
+      appInfo: state.app.info,
       setLoggedIn: state.session.setLoggedIn,
       fetchMe: state.session.fetchMe,
       fetchACL: state.session.fetchACL,
+      fetchAppInfo: state.app.fetchInfo,
     }))
   );
   const [initialized, setInitialized] = useState(false);
-  const [secretKeyOk, setSecretKeyOk] = useState<boolean | null>(null);
   const [logoAvailable, setLogoAvailable] = useState<boolean | null>(null);
 
   const navigate = useNavigate();
@@ -90,36 +100,18 @@ export default function App() {
   // update initialization-state
   useEffect(() => {
     if (loggedIn === undefined) return;
+    if (appInfo === undefined) return;
     if ((loggedIn && acl !== undefined && me !== undefined) || !loggedIn)
       setInitialized(true);
-  }, [loggedIn, acl, me]);
+  }, [loggedIn, acl, me, appInfo]);
 
-  // change defaultSecretKey depending on whether it was set in the
-  // environment variable or not
-  useEffect(() => {
-    fetch(host + "/api/misc/secret-key", {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    })
-      .then((response) => {
-        if (response.ok) {
-          setSecretKeyOk(true);
-        }
-        if (response.status === 404) {
-          setSecretKeyOk(false);
-        }
-      })
-      .catch((error) => {
-        console.error("Error while verifying SECRET_KEY:", error);
-      });
-  }, [setSecretKeyOk]);
+  // load app-configuration
+  useEffect(() => fetchAppInfo({}), [fetchAppInfo]);
 
   return (
     <>
       <header className="sticky top-0 z-50 w-[100%]">
-        {secretKeyOk === false && <SecretKeyBanner />}
+        {appInfo?.secretKeyOk === false && <SecretKeyBanner />}
         <div className="w-full relative flex justify-center items-center bg-white">
           <div
             className="absolute left-7 h-10 w-36 hover:cursor-pointer"

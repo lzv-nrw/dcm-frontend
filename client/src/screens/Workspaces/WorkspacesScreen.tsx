@@ -8,7 +8,7 @@ import MessageBox, {
   MessageHandler,
   useMessageHandler,
 } from "../../components/MessageBox";
-import NewWorkspaceModal from "./NewWorkspaceModal";
+import CUModal from "./CUModal";
 import WorkspaceDisplay from "./WorkspaceDisplay";
 
 export const ErrorMessageContext = createContext<MessageHandler | undefined>(
@@ -24,7 +24,7 @@ export default function WorkspacesScreen({
 }: WorkspacesScreenProps) {
   const errorMessageHandler = useMessageHandler([]);
 
-  const [showNewWorkspaceModal, setShowNewWorkspaceModal] = useState(false);
+  const [showCUModal, setShowCUModal] = useState(false);
   const fetchGroups = useGlobalStore((state) => state.permission.fetchGroups);
   const workspaceStore = useGlobalStore((state) => state.workspace);
   const templateStore = useGlobalStore((state) => state.template);
@@ -141,14 +141,11 @@ export default function WorkspacesScreen({
         <div className="flex justify-between items-center relative w-full mb-5">
           <h1 className="text-4xl font-bold">{t("Arbeitsbereiche")}</h1>
           {useACL && !acl?.CREATE_WORKSPACE ? null : (
-            <Button onClick={() => setShowNewWorkspaceModal(true)}>
+            <Button onClick={() => setShowCUModal(true)}>
               {t("Arbeitsbereich erstellen")}
             </Button>
           )}
-          <NewWorkspaceModal
-            show={showNewWorkspaceModal}
-            onClose={() => setShowNewWorkspaceModal(false)}
-          />
+          <CUModal show={showCUModal} onClose={() => setShowCUModal(false)} />
         </div>
         <MessageBox
           messages={errorMessageHandler.messages}

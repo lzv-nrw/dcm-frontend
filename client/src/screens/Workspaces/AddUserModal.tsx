@@ -56,43 +56,41 @@ export default function AddUserModal({
           messageTitle={t("Ein Fehler ist aufgetreten:")}
           onDismiss={errorMessageHandler.clearMessages}
         />
-        <div className="space-y-2">
-          <div className="overflow-y-auto max-h-96 p-2">
-            <ListGroup>
-              {Object.values(users)
-                .filter((user) => user.status !== "deleted")
-                .map((user) => (
-                  <ListGroupItem
-                    theme={{
-                      link: {
-                        active: {
-                          // fix default style which creates high-contrast background
-                          on: "outline-none ring-2 ring-cyan-700 bg-gray-100 text-cyan-700",
-                        },
+        <div className="p-2">
+          <ListGroup>
+            {Object.values(users)
+              .filter((user) => user.status !== "deleted")
+              .map((user) => (
+                <ListGroupItem
+                  theme={{
+                    link: {
+                      active: {
+                        // fix default style which creates high-contrast background
+                        on: "outline-none ring-2 ring-cyan-700 bg-gray-100 text-cyan-700",
                       },
-                    }}
-                    key={user.id}
-                    active={
-                      userSelection !== null && user.id === userSelection.id
-                    }
-                    onClick={() => setUserSelection(user)}
-                  >
-                    <div className="flex flex-col w-full space-y-2">
-                      <UserDisplay userInfo={user} />
-                      <Select id={user.id + "-group-select"}>
-                        {(groups ?? [])
-                          .filter((group) => group.workspaces)
-                          .map((group) => (
-                            <option key={group.id} value={group.id}>
-                              {group.name}
-                            </option>
-                          ))}
-                      </Select>
-                    </div>
-                  </ListGroupItem>
-                ))}
-            </ListGroup>
-          </div>
+                    },
+                  }}
+                  key={user.id}
+                  active={
+                    userSelection !== null && user.id === userSelection.id
+                  }
+                  onClick={() => setUserSelection(user)}
+                >
+                  <div className="flex flex-col w-full space-y-2">
+                    <UserDisplay userInfo={user} />
+                    <Select id={user.id + "-group-select"}>
+                      {(groups ?? [])
+                        .filter((group) => group.workspaces)
+                        .map((group) => (
+                          <option key={group.id} value={group.id}>
+                            {group.name}
+                          </option>
+                        ))}
+                    </Select>
+                  </div>
+                </ListGroupItem>
+              ))}
+          </ListGroup>
         </div>
       </Modal.Body>
       <Modal.Footer>

@@ -28,6 +28,10 @@ describe("CustomNavbar component render", () => {
   test("has context menu when user is logged in", async () => {
     // mock store content
     useGlobalStore.setState((state) => ({
+      app: {
+        info: { version: "", useGravatar: true, secretKeyOk: true },
+        fetchInfo: () => {},
+      },
       session: { ...state.session, loggedIn: true, me: userMock },
     }));
     // render
@@ -45,7 +49,9 @@ describe("CustomNavbar component render", () => {
 
     // .. and assert
     expect(navbar.getByText(userMock.username)).toBeInTheDocument();
-    expect(navbar.getByText(`${userMock.firstname} ${userMock.lastname}`)).toBeInTheDocument();
+    expect(
+      navbar.getByText(`${userMock.firstname} ${userMock.lastname}`)
+    ).toBeInTheDocument();
     expect(navbar.getByText(t("Abmelden"))).toBeInTheDocument();
   });
 
@@ -106,6 +112,10 @@ describe("CustomNavbar component render", () => {
   test("Renders gravatar image with correct URL", async () => {
     // mock store content
     useGlobalStore.setState((state) => ({
+      app: {
+        info: { version: "", useGravatar: true, secretKeyOk: true },
+        fetchInfo: () => {},
+      },
       session: { ...state.session, loggedIn: true, me: userMock },
     }));
     // render
@@ -130,6 +140,10 @@ describe("CustomNavbar component render", () => {
   test("Session is reset on logout", async () => {
     // mock store content
     useGlobalStore.setState((state) => ({
+      app: {
+        info: { version: "", useGravatar: true, secretKeyOk: true },
+        fetchInfo: () => {},
+      },
       session: { ...state.session, loggedIn: true, me: userMock },
     }));
     // mock API

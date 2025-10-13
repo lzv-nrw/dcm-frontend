@@ -108,6 +108,7 @@ The two components of this repository support the following options for configur
 * `BACKEND_TIMEOUT` [DEFAULT 10]: timeout duration for requests to the Backend-service in seconds
 * `OAI_TIMEOUT` [DEFAULT 60]: timeout for single connections to oai-repositories in seconds
 * `OAI_MAX_RESUMPTION_TOKENS` [DEFAULT 5]: maximum number of processed resumption tokens during a connection to oai-repositories
+* `USE_GRAVATAR` [DEFAULT 0]: whether to use gravatar-icons in frontend-client
 
 There are some advanced options for configuration available via the `AppConfig`-class that is passed to the app-factory. The default configuration is located in the module `app/dcm_frontend/config.py`.
 
@@ -115,18 +116,6 @@ There are some advanced options for configuration available via the `AppConfig`-
 
 * `REACT_APP_API_URL` [DEFAULT ""]: base url for backend;
   when running the `npm start`-script, the variable is automatically set to `http://localhost:5000`
-
-### Dependency Management
-
-To ensure consistent behavior across environments and prevent breaking changes due to automatic updates, we pin the versions of certain core dependencies:
-
-* `flowbite-react`
-* `tailwindcss`
-
-These libraries are sensitive to version changes that may affect UI layout or component behavior. Therefore:
-
-* Their versions in `package.json` are **fixed** (without `^` or `~`)
-* Updates should only be made **manually** and **with UI testing**
 
 # Contributors
 * Sven Haubold

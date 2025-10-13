@@ -12,6 +12,7 @@ import ConfirmModal from "../../components/ConfirmModal";
 import TemplateDisplay from "./TemplateDisplay";
 import AddUserModal from "./AddUserModal";
 import { ErrorMessageContext } from "./WorkspacesScreen";
+import CUModal from "./CUModal";
 
 export const WorkspaceContext = createContext<Workspace | null>(null);
 
@@ -29,6 +30,7 @@ export default function WorkspaceDisplay({
   const [loading, setLoading] = useState(false);
   const [loadingDelete, setLoadingDelete] = useState(false);
   const [showConfirmDeleteModal, setShowConfirmDeleteModal] = useState(false);
+  const [openCUModal, setOpenCUModal] = useState(false);
   const [openAddUserModal, setOpenAddUserModal] = useState(false);
   const [openAddTemplate, setOpenAddTemplate] = useState(false);
   const [openContextMenu, setOpenContextMenu] = useState(false);
@@ -200,7 +202,10 @@ export default function WorkspaceDisplay({
               open={openContextMenu}
               onOpenChange={setOpenContextMenu}
               items={[
-                { children: t("Umbenennen"), onClick: () => alert("tbd") },
+                {
+                  children: t("Umbenennen"),
+                  onClick: () => setOpenCUModal(true),
+                },
                 {
                   children: (
                     <div className="flex flex-row space-x-2 items-center">
@@ -224,6 +229,11 @@ export default function WorkspaceDisplay({
                 <FiMoreHorizontal size="18" />
               </div>
             </ContextMenu>
+            <CUModal
+              show={openCUModal}
+              onClose={() => setOpenCUModal(false)}
+              workspace={workspace}
+            />
             <ConfirmModal
               show={showConfirmDeleteModal}
               title={t("Arbeitsbereich löschen")}

@@ -1,25 +1,23 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Label, TextInput, Button, Spinner } from "flowbite-react";
 
 import t from "../../utils/translation";
 import useGlobalStore from "../../store";
-import { textInputLimit } from "../../utils/forms";
+import { textInputLimit, getTextInputColor } from "../../utils/forms";
 import MessageBox, { useMessageHandler } from "../../components/MessageBox";
 import { host, credentialsValue } from "../../App";
 import Modal from "../../components/Modal";
+import { Workspace } from "../../types";
 
-interface NewWorkspaceModalProps {
+interface CUModalProps {
   show: boolean;
+  workspace?: Workspace;
   onClose?: () => void;
 }
 
-export default function NewWorkspaceModal({
-  show,
-  onClose,
-}: NewWorkspaceModalProps) {
-  const nameRef = useRef<HTMLInputElement>(null);
+export default function CUModal({ show, workspace, onClose }: CUModalProps) {
   const errorMessageHandler = useMessageHandler([]);
-
+  const [name, setName] = useState("");
   const [nameOk, setNameOk] = useState<boolean | null>(null);
   const [sending, setSending] = useState<boolean>(true);
   const fetchWorkspaceIds = useGlobalStore(
@@ -28,29 +26,21 @@ export default function NewWorkspaceModal({
 
   // reset form on show/hide
   useEffect(() => {
-    setNameOk(null);
+    setName(workspace?.name ?? "");
+    setNameOk(workspace?.name ? true : null);
     errorMessageHandler.clearMessages();
     setSending(false);
     // eslint-disable-next-line
-  }, [show, setNameOk, setSending]);
-
-  /**
-   * Returns a Flowbite input color based on status.
-   *
-   * @param ok - whether input status is ok
-   * @returns Either `undefined` (input `null`) or a Flowbite input-color.
-   */
-  function getTextInputColor(
-    ok: boolean | null
-  ): undefined | "success" | "failure" {
-    if (ok === null) return;
-    if (ok) return "success";
-    else return "failure";
-  }
+  }, [show, workspace, setName, setNameOk, setSending]);
 
   return (
-    <Modal show={show} width="5xl" height="md" onClose={onClose} dismissible>
-      <Modal.Header title={t("Arbeitsbereich erstellen")} />
+    <Modal show={show} width="xl" height="xs" onClose={onClose} dismissible>
+      <Modal.Header
+        title={
+          t("Arbeitsbereich ") +
+          (workspace?.id === undefined ? t("erstellen") : t("umbenennen"))
+        }
+      />
       <Modal.Body>
         <MessageBox
           className="my-1"
@@ -63,14 +53,14 @@ export default function NewWorkspaceModal({
             <Label htmlFor="name" value={t("Titel*")} />
             <TextInput
               id="name"
-              ref={nameRef}
-              color={getTextInputColor(nameOk)}
+              value={name}
+              color={getTextInputColor({ ok: nameOk })}
               maxLength={textInputLimit.md}
-              onFocus={() => {
-                setNameOk(null);
-              }}
+              onChange={(e) => setName(e.target.value)}
+              onFocus={() => setNameOk(null)}
               onBlur={(e) => {
-                setNameOk(e.target?.value !== "");
+                setNameOk(e.target?.value.trim() !== "");
+                setName(e.target?.value.trim());
               }}
             />
           </div>
@@ -81,19 +71,15 @@ export default function NewWorkspaceModal({
           <Button onClick={onClose}>{t("Abbrechen")}</Button>
           <Button
             onClick={() => {
-              let valid = true;
               errorMessageHandler.clearMessages();
-              [{ ok: nameOk, setOk: setNameOk }].forEach(({ ok, setOk }) => {
-                if (!ok) {
-                  setOk?.(false);
-                  valid = false;
-                  errorMessageHandler.pushMessage({
-                    id: "bad-form-generic",
-                    text: t("Bitte füllen Sie alle erforderlichen Felder aus."),
-                  });
-                }
-              });
-              if (!valid) return;
+              if (!nameOk) {
+                setNameOk(false);
+                errorMessageHandler.pushMessage({
+                  id: "bad-form-generic",
+                  text: t("Bitte füllen Sie alle erforderlichen Felder aus."),
+                });
+                return;
+              }
               setSending(true);
               errorMessageHandler.removeMessage(
                 "submit-workspace-config-bad-response"
@@ -102,13 +88,14 @@ export default function NewWorkspaceModal({
                 "submit-workspace-config-error"
               );
               fetch(host + "/api/admin/workspace", {
-                method: "POST",
+                method: workspace?.id === undefined ? "POST" : "PUT",
                 headers: {
                   "Content-Type": "application/json",
                 },
                 credentials: credentialsValue,
                 body: JSON.stringify({
-                  name: nameRef.current?.value,
+                  ...(workspace?.id && { id: workspace.id }),
+                  name,
                 }),
               })
                 .then((response) => {
@@ -139,7 +126,13 @@ export default function NewWorkspaceModal({
                 });
             }}
           >
-            {sending ? <Spinner size="sm" /> : t("Erstellen")}
+            {sending ? (
+              <Spinner size="sm" />
+            ) : workspace?.id === undefined ? (
+              t("Erstellen")
+            ) : (
+              t("Speichern")
+            )}
           </Button>
         </div>
       </Modal.Footer>

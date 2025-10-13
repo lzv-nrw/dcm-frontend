@@ -1,5 +1,11 @@
 import { WidgetConfig } from "./components/Widgets/types";
 
+export interface AppInfo {
+  version: string;
+  secretKeyOk: boolean;
+  useGravatar: boolean;
+}
+
 export interface ACL {
   [key: string]: undefined | boolean;
   CREATE_USERCONFIG?: boolean;
@@ -112,7 +118,7 @@ export interface Template {
     | PluginTemplateInfo
     | HotfolderTemplateInfo
     | OAITemplateInfo;
-  targetArchive?: {id?: string};
+  targetArchive?: { id?: string };
   userCreated?: string;
   datetimeCreated?: string;
   userModified?: string;
