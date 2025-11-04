@@ -59,6 +59,11 @@ def app_factory(config: AppConfig):
             dcm_backend_sdk.Configuration(host=config.BACKEND_HOST)
         )
     )
+    backend_artifact_api = dcm_backend_sdk.ArtifactApi(
+        dcm_backend_sdk.ApiClient(
+            dcm_backend_sdk.Configuration(host=config.BACKEND_HOST)
+        )
+    )
 
     view_client = ClientView(config)
     view_auth = AuthView(config, backend_user_api)
@@ -71,7 +76,9 @@ def app_factory(config: AppConfig):
     )
     view_misc = MiscellaneousView(config)
     view_job_config = JobConfigView(config, backend_config_api)
-    view_job = JobView(config, backend_job_api, backend_config_api)
+    view_job = JobView(
+        config, backend_job_api, backend_config_api, backend_artifact_api
+    )
 
     # register extensions
     login_manager = LoginManager(app)

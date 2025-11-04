@@ -273,6 +273,7 @@ class TemplateView(services.View):
         @requires_permission(
             *(
                 self.config.ACL.CREATE_TEMPLATE
+                + self.config.ACL.READ_TEMPLATE
                 + self.config.ACL.MODIFY_TEMPLATE
             )
         )
@@ -360,6 +361,7 @@ class TemplateView(services.View):
         @requires_permission(
             *(
                 self.config.ACL.CREATE_TEMPLATE
+                + self.config.ACL.READ_TEMPLATE
                 + self.config.ACL.MODIFY_TEMPLATE
             )
         )

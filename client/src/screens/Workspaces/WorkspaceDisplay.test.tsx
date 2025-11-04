@@ -107,13 +107,14 @@ test("shows the expected elements", async () => {
   expect(display.queryByText(demoUser.firstname!)).toBeNull();
   expect(display.getByText(t("Templates"))).toBeInTheDocument();
   expect(display.getByText(t("Nutzer"))).toBeInTheDocument();
-  expect(display.getAllByText("+")).toHaveLength(2);
+  expect(display.getByText(t("Nutzer hinzufügen"))).toBeInTheDocument();
+  expect(display.getByText(t("Template hinzufügen"))).toBeInTheDocument();
 });
 
 test("add template to workspace", async () => {
   const display = await act(() => render(<MinimalDisplayWithStore />));
 
-  const templateBtn = display.getAllByText("+")[0];
+  const templateBtn = display.getByText(t("Template hinzufügen"));
   expect(
     templateBtn.compareDocumentPosition(display.getByText(t("Templates")))
   ).toBe(Node.DOCUMENT_POSITION_PRECEDING);
@@ -137,7 +138,7 @@ test("add template to workspace", async () => {
 test("add user to workspace", async () => {
   const display = await act(() => render(<MinimalDisplayWithStore />));
 
-  const userBtn = display.getAllByText("+")[1];
+  const userBtn = display.getAllByText(t("Nutzer hinzufügen"))[0];
   expect(
     userBtn.compareDocumentPosition(display.getByText(t("Templates")))
   ).toBe(Node.DOCUMENT_POSITION_PRECEDING);
@@ -148,32 +149,46 @@ test("add user to workspace", async () => {
   // open modal
   fireEvent.click(userBtn);
   await new Promise(process.nextTick);
-  expect(display.getByText(t("Nutzer hinzufügen"))).toBeInTheDocument();
+  expect(display.getAllByText(t("Nutzer hinzufügen"))[1]).toBeInTheDocument();
 });
 
 test.each([
   {
     acl: { MODIFY_USERCONFIG: true, MODIFY_TEMPLATE: true },
     assert: (display: RenderResult) => {
-      expect(display.getAllByText("+")).toHaveLength(2);
+      expect(display.getByText(t("Nutzer hinzufügen"))).toBeInTheDocument();
+      expect(display.getByText(t("Template hinzufügen"))).toBeInTheDocument();
     },
   },
   {
     acl: { MODIFY_USERCONFIG: true },
     assert: (display: RenderResult) => {
-      expect(display.getAllByText("+")).toHaveLength(1);
+      expect(
+        display.getByText(t("Sie haben noch keine Templates hinzugefügt."))
+      ).toBeInTheDocument();
+      expect(display.getByText(t("Nutzer hinzufügen"))).toBeInTheDocument();
     },
   },
   {
     acl: { MODIFY_TEMPLATE: true },
     assert: (display: RenderResult) => {
-      expect(display.getAllByText("+")).toHaveLength(1);
+      expect(display.getByText(t("Template hinzufügen"))).toBeInTheDocument();
+      expect(
+        display.getByText(t("Sie haben noch keine Nutzer hinzugefügt."))
+      ).toBeInTheDocument();
     },
   },
   {
     acl: { MODIFY_WORKSPACE: false },
     assert: (display: RenderResult) => {
-      expect(display.queryAllByText("+")).toHaveLength(0);
+      expect(display.queryAllByText(t("Template hinzufügen"))).toHaveLength(0);
+      expect(display.queryAllByText(t("Nutzer hinzufügen"))).toHaveLength(0);
+      expect(
+        display.getByText(t("Sie haben noch keine Templates hinzugefügt."))
+      ).toBeInTheDocument();
+      expect(
+        display.getByText(t("Sie haben noch keine Nutzer hinzugefügt."))
+      ).toBeInTheDocument();
     },
   },
 ])("hide UI if useACL", async ({ acl, assert }) => {

@@ -10,6 +10,7 @@ import MessageBox, {
 } from "../../components/MessageBox";
 import CUModal from "./CUModal";
 import WorkspaceDisplay from "./WorkspaceDisplay";
+import { genericSort } from "../../utils/genericSort";
 
 export const ErrorMessageContext = createContext<MessageHandler | undefined>(
   undefined
@@ -131,6 +132,34 @@ export default function WorkspacesScreen({
     }
     // eslint-disable-next-line
   }, [userStore.userIds]);
+  // * fetch all hotfolders on first load
+  useEffect(
+    () =>
+      templateStore.fetchHotfolders({
+        useACL: useACL,
+        onFail: (msg) =>
+          errorMessageHandler.pushMessage({
+            id: "fetch-hotfolders",
+            text: msg,
+          }),
+      }),
+    // eslint-disable-next-line
+    [useACL]
+  );
+  // * fetch all archive configurations on first load
+  useEffect(
+    () =>
+      templateStore.fetchArchives({
+        useACL: useACL,
+        onFail: (msg) =>
+          errorMessageHandler.pushMessage({
+            id: "fetch-archives",
+            text: msg,
+          }),
+      }),
+    // eslint-disable-next-line
+    [useACL]
+  );
   // end run store-logic
 
   return useACL && !acl?.VIEW_SCREEN_WORKSPACES ? (
@@ -159,7 +188,7 @@ export default function WorkspacesScreen({
         ) : (
           <div className="relative grid grid-cols-2 py-4 gap-5">
             {Object.values(workspaceStore.workspaces)
-              .sort((a, b) => (a.name > b.name ? 1 : -1))
+              .sort(genericSort({ field: "name" }))
               .map((workspace) => (
                 <WorkspaceDisplay
                   key={workspace.id}

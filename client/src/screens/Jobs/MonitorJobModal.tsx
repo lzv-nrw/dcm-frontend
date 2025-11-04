@@ -443,7 +443,11 @@ export default function MonitorJobModal({
                         return "running";
                       if (jobInfos[token].status === "aborted")
                         return "failure";
-                      if (jobInfos[token].success) return "success";
+                      if (
+                        jobInfos[token].status === "completed" &&
+                        (jobInfos[token]?.report?.data?.issues ?? 0) === 0
+                      )
+                        return "success";
                       return "failure";
                     })()}
                     active={selectedRecordId === undefined}
@@ -460,8 +464,8 @@ export default function MonitorJobModal({
                     <SidebarItem
                       key={recordId}
                       status={(() => {
-                        if (!record.completed) return "running";
-                        if (record.success) return "success";
+                        if (record.status === "in-process") return "running";
+                        if (record.status === "complete") return "success";
                         return "failure";
                       })()}
                       text={recordId}

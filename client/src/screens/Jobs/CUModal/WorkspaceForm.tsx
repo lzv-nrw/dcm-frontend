@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Card } from "flowbite-react";
 
 import t from "../../../utils/translation";
+import { genericSort } from "../../../utils/genericSort";
 import { Workspace } from "../../../types";
 import useGlobalStore from "../../../store";
 
@@ -23,7 +24,7 @@ export default function WorkspaceForm({ onSelect }: WorkspaceFormProps) {
       {
         <div className="relative grid grid-cols-3 gap-10">
           {Object.values(workspaces)
-            .sort((a, b) => (a.name > b.name ? 1 : -1))
+            .sort(genericSort({ field: "name" }))
             .map((workspace) => (
               <Card
                 key={workspace.id}

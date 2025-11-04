@@ -37,6 +37,7 @@ export default function AddUserModal({
   const fetchWorkspace = useGlobalStore(
     (state) => state.workspace.fetchWorkspace
   );
+  const fetchUser = useGlobalStore((state) => state.user.fetchUser);
 
   // reset form on show/hide
   useEffect(() => {
@@ -142,6 +143,7 @@ export default function AddUserModal({
                     return;
                   }
                   fetchWorkspace({ workspaceId: workspace.id });
+                  fetchUser({ userId: userSelection.id });
                   onClose?.();
                 })
                 .catch((error) => {

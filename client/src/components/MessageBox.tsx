@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Alert } from "flowbite-react";
 
-interface Message {
+export interface Message {
   id: string;
   text: string;
 }

@@ -10,6 +10,7 @@ import {
   ValidationReport,
   Validator,
 } from "../../../utils/forms";
+import { genericSort } from "../../../utils/genericSort";
 import useGlobalStore from "../../../store";
 import { FormSectionComponentProps } from "../../../components/SectionedForm";
 import { useFormStore } from "./store";
@@ -117,9 +118,7 @@ export default function ArchiveForm({
             >
               <option value="">{t("Bitte auswählen")}</option>
               {Object.values(archives)
-                .sort((a, b) =>
-                  a.name.toLowerCase() > b.name.toLowerCase() ? 1 : -1
-                )
+                .sort(genericSort({ field: "name" }))
                 .map(({ id, name }) => (
                   <option key={id} value={id}>
                     {name}

@@ -11,7 +11,7 @@ from dcm_common.services.tests import (
     tmp_cleanup,
 )
 from dcm_backend.config import AppConfig as BackendConfig
-from dcm_backend import app_factory as backend_factory
+from dcm_backend import app_factory as backend_factory, util
 
 from dcm_frontend import app_factory
 from dcm_frontend.config import AppConfig
@@ -166,7 +166,7 @@ def _backend_archives():
 
 
 @pytest.fixture(name="backend_config")
-def _backend_config(backend_hotfolder, backend_archives):
+def _backend_config(backend_hotfolder, backend_archives, temp_folder):
 
     class Config(BackendConfig):
         TESTING = True
@@ -187,16 +187,54 @@ def _backend_config(backend_hotfolder, backend_archives):
             + '", "name": "0"}]'
         )
         ARCHIVES_SRC = dumps(backend_archives)
-        ARCHIVE_CONTROLLER_DEFAULT_ARCHIVE = backend_archives[0]["id"]
+        TEST_IE_ID = str(uuid4())
+
+        FS_MOUNT_POINT = temp_folder
+        CLEANUP_DISABLED = True
 
     return Config
 
 
 @pytest.fixture(name="backend")
-def _backend(run_service, backend_config, backend_port):
+def _backend(run_service, backend_config, backend_archives, backend_port):
+
+    def _startup_backend():
+        config = backend_config()
+        app = backend_factory(config, block=True)
+        # write additional data to database to make it available during
+        # tests
+        config.db.insert(
+            "jobs",
+            {
+                "token": util.DemoData.token1,
+                "job_config_id": util.DemoData.job_config1,
+                "trigger_type": "manual",
+                "status": "completed",
+            },
+        )
+        config.db.insert(
+            "ies",
+            {
+                "id": config.TEST_IE_ID,
+                "job_config_id": util.DemoData.job_config1,
+                "origin_system_id": "a",
+                "external_id": "b",
+                "archive_id": backend_archives[0]["id"],
+            },
+        )
+        config.db.insert(
+            "records",
+            {
+                "job_config_id": util.DemoData.job_config1,
+                "job_token": util.DemoData.token1,
+                "ie_id": config.TEST_IE_ID,
+                "status": "process-error",
+            },
+        )
+        return app
 
     p = run_service(
-        from_factory=lambda: backend_factory(backend_config()),
+        from_factory=_startup_backend,
         port=backend_port,
         probing_path="ready",
     )

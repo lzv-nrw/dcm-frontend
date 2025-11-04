@@ -215,11 +215,10 @@ export default function TemplatesScreen({
                 >
                   <option value="">{t("Arbeitsbereich")}</option>
                   {findWorkspaceIds(Object.values(templateStore.templates))
-                    .sort((a, b) =>
-                      workspaceStore.workspaces[a]?.name.toLowerCase() >
-                      workspaceStore.workspaces[b]?.name.toLowerCase()
-                        ? 1
-                        : -1
+                    .sort(
+                      genericSort<string>({
+                        getValue: (w) => workspaceStore.workspaces[w]?.name ?? "",
+                      })
                     )
                     .map((workspace) => (
                       <option key={workspace} value={workspace}>
@@ -293,7 +292,6 @@ export default function TemplatesScreen({
                   genericSort({
                     field: sortBy,
                     fallbackValue: "",
-                    caseInsensitive: true,
                   })
                 )
                 .map((template) => (

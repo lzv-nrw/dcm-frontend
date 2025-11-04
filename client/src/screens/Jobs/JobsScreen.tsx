@@ -72,7 +72,7 @@ const tableColumns: TableColumn[] = [
   {
     id: ColumnIdentifier.ArchivedIEs,
     name: t("Archivierte IEs"),
-    Cell: TableCells.ArchivedRecordsCell,
+    Cell: TableCells.ArchivedIEsCell,
   },
   {
     id: ColumnIdentifier.Issues,
@@ -108,6 +108,7 @@ export default function JobsScreen({ useACL = false }: JobsScreenProps) {
   const workspaceStore = useGlobalStore((state) => state.workspace);
   const templateStore = useGlobalStore((state) => state.template);
   const jobStore = useGlobalStore((state) => state.job);
+  const jobInfos = useGlobalStore((state) => state.job.jobInfos);
 
   const acl = useGlobalStore((state) => state.session.acl);
 
@@ -275,11 +276,11 @@ export default function JobsScreen({ useACL = false }: JobsScreenProps) {
                 >
                   <option value="">{t("Arbeitsbereich")}</option>
                   {findWorkspaceIds(Object.values(jobStore.jobConfigs))
-                    .sort((a, b) =>
-                      workspaceStore.workspaces[a]?.name.toLowerCase() >
-                      workspaceStore.workspaces[b]?.name.toLowerCase()
-                        ? 1
-                        : -1
+                    .sort(
+                      genericSort({
+                        getValue: (w) =>
+                          workspaceStore.workspaces[w]?.name ?? "",
+                      })
                     )
                     .map((workspace) => (
                       <option key={workspace} value={workspace}>
@@ -448,9 +449,7 @@ export default function JobsScreen({ useACL = false }: JobsScreenProps) {
                       )
                       .sort(
                         genericSort<JobConfig>({
-                          field: sortBy,
                           fallbackValue: "-",
-                          caseInsensitive: true,
                           getValue: (item) => {
                             switch (sortBy) {
                               case "name":
@@ -478,7 +477,15 @@ export default function JobsScreen({ useACL = false }: JobsScreenProps) {
                         })
                       )
                       .map((config) => (
-                        <Table.Row key={config.id}>
+                        <Table.Row
+                          className={
+                            (jobInfos[config?.latestExec ?? ""]?.report?.data
+                              ?.issues ?? 0) > 0
+                              ? "bg-red-100 hover:bg-red-50"
+                              : ""
+                          }
+                          key={config.id}
+                        >
                           {tableColumns.map((item) => (
                             <item.Cell key={item.id} config={config} />
                           ))}

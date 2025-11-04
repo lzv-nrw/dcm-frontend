@@ -7,6 +7,10 @@ import {
   Alert,
   Card,
   Spinner,
+  Pagination,
+  Checkbox,
+  Dropdown,
+  Button,
 } from "flowbite-react";
 import { Navigate, useNavigate, useSearchParams } from "react-router";
 import { FiChevronLeft } from "react-icons/fi";
@@ -14,8 +18,8 @@ import { FiChevronLeft } from "react-icons/fi";
 import t from "../../utils/translation";
 import { formatJobConfigStatus } from "../../utils/util";
 import { reformatDatetime } from "../../utils/dateTime";
-import { genericSort } from "../../utils/genericSort";
 import {
+  IE,
   JobConfig,
   JobInfo,
   RecordInfo,
@@ -23,13 +27,15 @@ import {
   Workspace,
 } from "../../types";
 import useGlobalStore from "../../store";
+import { credentialsValue, devMode, host } from "../../App";
 import UserDisplay from "../../components/UserDisplay";
 import MessageBox, {
+  Message,
   MessageHandler,
   useMessageHandler,
 } from "../../components/MessageBox";
-import { devMode } from "../../App";
 import * as TableCells from "./TableCells";
+import IEUpdateInfoModal from "./IEUpdateInfoModal";
 
 enum ColumnIdentifier {
   SourceSystemId = "sourceSystemId",
@@ -39,6 +45,7 @@ enum ColumnIdentifier {
   Processed = "processed",
   Status = "status",
   Token = "token",
+  Download = "download",
 }
 
 interface TableColumn {
@@ -70,21 +77,84 @@ const tableColumns: TableColumn[] = [
     name: t("Status"),
     Cell: TableCells.StatusCell,
   },
+  {
+    id: ColumnIdentifier.Download,
+    name: t("Download"),
+    Cell: TableCells.DownloadCell,
+  },
 ];
 
 /**
  * Formats record status.
- * @param record record
+ * @param status record status
  * @returns formatted record status
  */
-export function formatRecordStatus(record: RecordInfo): string {
-  if (record.success) return "archiviert";
-  return "Fehler";
+export function formatRecordStatus(record?: RecordInfo): string {
+  if (!record) return "-";
+  switch (record.status) {
+    case "complete":
+      return "archiviert";
+    case "in-process":
+      return "in Verarbeitung";
+    case "import-error":
+      return "Importfehler";
+    case "build-ip-error":
+    case "prepare-ip-error":
+      return "IP-Konvertierungsfehler";
+    case "build-sip-error":
+      return "SIP-Konvertierungsfehler";
+    case "transfer-error":
+      return "Transferfehler";
+    case "ingest-error":
+      return "Ingest-Fehler";
+    case "process-error":
+      return "Fehler";
+    case "ip-val-error":
+    case "obj-val-error":
+      return "Validierungsfehler";
+  }
 }
 
 export const ErrorMessageContext = createContext<MessageHandler | undefined>(
   undefined
 );
+
+const ITEMS_PER_PAGE = 50;
+
+type IEStatusFilterType =
+  | "complete"
+  | "inProcess"
+  | "validationError"
+  | "error"
+  | "ignored";
+
+type IESortOptionsType =
+  | "datetimeChanged"
+  | "originSystemId"
+  | "externalId"
+  | "archiveIeId"
+  | "archiveSipId"
+  | "status";
+
+type IEUpdateAsType =
+  | "clear"
+  | "ignore"
+  | "planAsBitstream"
+  | "planToSkipObjectValidation";
+
+interface IEQuery {
+  filterByStatus?: IEStatusFilterType;
+  filterByText?: string;
+  sort: IESortOptionsType;
+}
+
+export interface IEUpdateProcessInfo {
+  running: boolean;
+  as?: IEUpdateAsType;
+  todo: string[];
+  status?: string;
+  messages: Message[];
+}
 
 interface JobDetailsScreenProps {
   useACL?: boolean;
@@ -96,9 +166,20 @@ export default function JobDetailsScreen({
   const errorMessageHandler = useMessageHandler([]);
 
   const navigate = useNavigate();
-  const [filter, setFilter] = useState<boolean | null>(null);
-  const [sortBy, setSortBy] = useState<string>("status");
-  const [searchFor, setSearchFor] = useState<string | null>(null);
+
+  const [ieQuery, setIEQuery] = useState<IEQuery>({ sort: "datetimeChanged" });
+  const [page, setPage] = useState<number>(1);
+  const [ieCount, setIECount] = useState<number>(0);
+  const [ies, setIEs] = useState<IE[]>([]);
+  const [selectedIEs, setSelectedIEs] = useState<string[]>([]);
+  const [selectableIEs, setSelectableIEs] = useState<string[]>([]);
+  const [ieUpdateProcessInfo, setIEUpdateProcessInfo] =
+    useState<IEUpdateProcessInfo>({
+      running: false,
+      todo: [],
+      messages: [],
+    });
+  const [showIEUpdateInfoModal, setShowIEUpdateInfoModal] = useState(false);
 
   const [jobConfigId, setJobConfigId] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
@@ -106,9 +187,9 @@ export default function JobDetailsScreen({
   const [template, setTemplate] = useState<Template | null>(null);
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [latestJobInfo, setLatestJobInfo] = useState<JobInfo | null>(null);
-  const [records, setRecords] = useState<RecordInfo[] | null>(null);
-  const fetchRecordsByJobConfig = useGlobalStore(
-    (state) => state.job.fetchRecordsByJobConfig
+  const fetchIE = useGlobalStore((state) => state.job.fetchIE);
+  const fetchIEsByJobConfig = useGlobalStore(
+    (state) => state.job.fetchIEsByJobConfig
   );
   const fetchWorkspace = useGlobalStore(
     (state) => state.workspace.fetchWorkspace
@@ -119,26 +200,157 @@ export default function JobDetailsScreen({
 
   const acl = useGlobalStore((state) => state.session.acl);
 
+  const scheduleTypesMap: Record<string, string> = {
+    day: "täglich",
+    week: "wöchentlich",
+    month: "monatlich",
+  };
+
   // load query arg
   useEffect(() => {
     setJobConfigId(searchParams.get("id"));
   }, [searchParams]);
 
+  // identify currently selectable IEs
+  // * object-validation error
+  // * (devMode) not complete
+  useEffect(() => {
+    setSelectableIEs(
+      ies
+        .filter(
+          (ie) =>
+            ie?.records?.[ie.latestRecordId ?? ""]?.status ===
+              "obj-val-error" ||
+            (devMode &&
+              ie?.records?.[ie.latestRecordId ?? ""]?.status !== "complete")
+        )
+        .map((ie) => ie.id)
+    );
+  }, [ies, setSelectableIEs]);
+
+  // run update routine for selected IEs
+  useEffect(() => {
+    (async () => {
+      if (!ieUpdateProcessInfo.running) return;
+      if (!ieUpdateProcessInfo.as) {
+        setIEUpdateProcessInfo({
+          running: false,
+          todo: [],
+          as: undefined,
+          messages: [
+            ...ieUpdateProcessInfo.messages,
+            {
+              id: "update-ie-missing-action",
+              text: t(
+                "Fehler beim Aktualisieren von Einträgen: Keine Aktion ausgewählt."
+              ),
+            },
+          ],
+        });
+      } else {
+        // asyncronously process IEs one by one
+        // this avoids potentially sending a very large amount of API-
+        // requests simultaneously
+        const completedIEs: string[] = [];
+        const messages: Message[] = [];
+        for (const id of ieUpdateProcessInfo.todo) {
+          setIEUpdateProcessInfo((state) => ({
+            ...state,
+            status: `${completedIEs.length} von ${ieUpdateProcessInfo.todo.length} Einträgen verarbeitet..`,
+          }));
+
+          // for debugging
+          // await new Promise((r) => setTimeout(r, 1000));
+
+          let message = "";
+          const response = await fetch(host + "/api/curator/job/ie-plan", {
+            method: "POST",
+            credentials: credentialsValue,
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ id, [ieUpdateProcessInfo.as]: true }),
+          }).catch((error) => {
+            message = `Fehler beim Aktualisieren von Eintrag '${id}': ${error.message}`;
+          });
+
+          if (response && !response.ok) {
+            message = `Fehler beim Aktualisieren von Eintrag '${id}': ${await response.text()}`;
+          }
+
+          if (message !== "")
+            messages.push({ id: `update-ie-failed-${id}`, text: t(message) });
+          completedIEs.push(id);
+          fetchIE({
+            id,
+            onSuccess: (ie) => {
+              setIEs((ies) => {
+                return [
+                  ...ies.map((oldIE) => (ie.id === oldIE.id ? ie : oldIE)),
+                ];
+              });
+            },
+          });
+        }
+        setIEUpdateProcessInfo((state) => ({
+          ...state,
+          messages: [...state.messages, ...messages],
+        }));
+        setSelectedIEs([]);
+      }
+      // finalize process and show modal
+      setIEUpdateProcessInfo((state) => ({
+        ...state,
+        running: false,
+      }));
+      setShowIEUpdateInfoModal(true);
+    })();
+    // eslint-disable-next-line
+  }, [ieUpdateProcessInfo.running]);
+
   // fetch data
-  // * fetch records
+  // * fetch ies
+  //   (initial fetch+again if ieQuery changes; this resets toolbar and page)
   useEffect(() => {
     if (!jobConfigId) return;
-    fetchRecordsByJobConfig({
+    fetchIEsByJobConfig({
       jobConfigId,
-      onSuccess: (records) => setRecords(records),
+      filterByStatus: ieQuery.filterByStatus,
+      filterByText: ieQuery.filterByText,
+      sort: ieQuery.sort,
+      range: `0..${ITEMS_PER_PAGE}`,
+      count: "true",
+      onSuccess: (data) => {
+        setPage(1);
+        setIECount(data.count ?? 0);
+        setIEs(data.IEs);
+      },
       onFail: (error) =>
         errorMessageHandler.pushMessage({
-          id: "fetch-job-records",
+          id: "fetch-job-ies",
           text: error,
         }),
     });
     // eslint-disable-next-line
-  }, [jobConfigId, fetchRecordsByJobConfig]);
+  }, [jobConfigId, fetchIEsByJobConfig, ieQuery]);
+  // * fetch ies again when changing current page
+  useEffect(() => {
+    if (!jobConfigId) return;
+    fetchIEsByJobConfig({
+      jobConfigId,
+      filterByStatus: ieQuery.filterByStatus,
+      filterByText: ieQuery.filterByText,
+      sort: ieQuery.sort,
+      range: `${(page - 1) * ITEMS_PER_PAGE}..${page * ITEMS_PER_PAGE}`,
+      onSuccess: (data) => setIEs(data.IEs),
+      onFail: (error) =>
+        errorMessageHandler.pushMessage({
+          id: "fetch-job-ies",
+          text: error,
+        }),
+    });
+    // eslint-disable-next-line
+  }, [page]);
   // * fetch JobConfig
   useEffect(() => {
     if (!jobConfigId) return;
@@ -233,46 +445,39 @@ export default function JobDetailsScreen({
             <div className="flex flex-row w-full justify-between space-x-4">
               <div className="flex flex-col flex-grow space-y-2">
                 <h3 className="text-2xl font-bold">{t("Übersicht")}</h3>
-                <Card>
-                  {records && jobConfig && template && workspace ? (
-                    <div className="flex flex-col space-y-2">
+                <Card className="h-full">
+                  {ies && jobConfig && template && workspace ? (
+                    <div className="flex flex-col h-full justify-around space-y-2">
                       <div>
                         <h5 className="font-semibold">{t("Titel")}</h5>
                         <span>{jobConfig.name ?? "-"}</span>
                       </div>
                       <div>
                         <h5 className="font-semibold">{t("Status")}</h5>
-                        <span>{t(formatJobConfigStatus(jobConfig))}</span>
-                      </div>
-                      <div>
-                        <h5 className="font-semibold">{t("Typ")}</h5>
                         <span>
-                          {template.type
-                            ? ((type) => {
-                                switch (type) {
-                                  case "plugin":
-                                    return t("Plugin");
-                                  case "oai":
-                                    return t("Harvest");
-                                  case "hotfolder":
-                                    return t("Hotfolder");
-                                  default:
-                                    return t("Unbekannt");
-                                }
-                              })(template.type)
-                            : "-"}
+                          {t(formatJobConfigStatus(jobConfig)).toLowerCase()}
                         </span>
                       </div>
                       <div>
-                        <h5 className="font-semibold">{t("Arbeitsbereich")}</h5>
+                        <h5 className="font-semibold">{t("Template")}</h5>
+                        <span>{template.name}</span>
+                      </div>
+                      <div>
+                        <h5 className="font-semibold">{t("Bereich")}</h5>
                         <span>{workspace.name}</span>
                       </div>
                       <div>
-                        <h5 className="font-semibold">
-                          {t("Eingelieferte IEs (gesamt)")}
-                        </h5>
+                        <h5 className="font-semibold">{t("Wiederholung")}</h5>
                         <span>
-                          {records.filter((record) => record.success).length}
+                          {jobConfig.schedule?.active
+                            ? jobConfig.schedule.repeat?.unit
+                              ? t(
+                                  scheduleTypesMap[
+                                    jobConfig!.schedule.repeat.unit
+                                  ]
+                                )
+                              : t("einmalig")
+                            : "-"}
                         </span>
                       </div>
                     </div>
@@ -319,6 +524,16 @@ export default function JobDetailsScreen({
                             : "-"}
                         </span>
                       </div>
+                      <div>
+                        <h5 className="font-semibold">{t("Nächster Lauf")}</h5>
+                        <span>
+                          {latestJobInfo
+                            ? reformatDatetime(jobConfig?.scheduledExec, {
+                                devMode,
+                              })
+                            : "-"}
+                        </span>
+                      </div>
                     </div>
                   ) : (
                     <Spinner />
@@ -327,27 +542,32 @@ export default function JobDetailsScreen({
               </div>
             </div>
             <div>
-              <h3 className="text-2xl font-bold">{t("Eingelieferte IEs")}</h3>
+              <h3 className="text-2xl font-bold">
+                {`${t("IEs")} (${ieCount ?? jobConfig?.IEs ?? 0})`}
+              </h3>
               <div className="flex justify-between items-center relative w-full my-4">
                 <div className="flex flex-row space-x-2 items-center">
                   <Label className="mx-2" value={t("Filtern nach")} />
                   <Select
                     className="min-w-32"
+                    value={ieQuery.filterByStatus ?? ""}
                     onChange={(event) =>
-                      setFilter(
-                        event.target.value
-                          ? event.target.value === "true"
-                          : null
-                      )
+                      setIEQuery((state) => ({
+                        ...state,
+                        filterByStatus:
+                          event.target.value === ""
+                            ? undefined
+                            : (event.target.value as IEStatusFilterType),
+                      }))
                     }
                   >
-                    <option value={""}>{t("Status")}</option>
-                    <option value={"true"}>
-                      {t(formatRecordStatus({ reportId: "", success: true }))}
+                    <option value="">{t("Status")}</option>
+                    <option value="complete">{t("Archiviert")}</option>
+                    <option value="validationError">
+                      {t("Validierungsfehler")}
                     </option>
-                    <option value={"false"}>
-                      {t(formatRecordStatus({ reportId: "", success: false }))}
-                    </option>
+                    <option value="error">{t("Fehler")}</option>
+                    <option value="ignored">{t("Verworfen")}</option>
                   </Select>
                 </div>
                 <div className="flex justify-between items-center">
@@ -355,10 +575,13 @@ export default function JobDetailsScreen({
                     className="min-w-32"
                     type="text"
                     placeholder={t("Suche nach")}
+                    value={ieQuery.filterByText ?? ""}
                     onChange={(e) => {
                       const text = e.target.value.trim();
-                      if (text === "") setSearchFor(null);
-                      else setSearchFor(text);
+                      setIEQuery((state) => ({
+                        ...state,
+                        filterByText: text === "" ? undefined : text,
+                      }));
                     }}
                   />
                   <div className="flex flex-row items-center ml-2">
@@ -370,59 +593,164 @@ export default function JobDetailsScreen({
                     <Select
                       className="min-w-32"
                       id="sortBy"
-                      value={sortBy}
-                      onChange={(e) => {
-                        if (
-                          (
-                            [
-                              ColumnIdentifier.SourceSystemId,
-                              ColumnIdentifier.ExternalId,
-                              ColumnIdentifier.SIPId,
-                              ColumnIdentifier.IEId,
-                              ColumnIdentifier.Processed,
-                              ColumnIdentifier.Status,
-                            ] as string[]
-                          ).includes(e.target.value)
-                        )
-                          setSortBy(e.target.value as ColumnIdentifier);
-                        else
-                          errorMessageHandler.pushMessage({
-                            id: "unknown-sort-by-id",
-                            text: t(
-                              `Unbekannter Schlüssel '${e.target.value}' beim Sortieren.`
-                            ),
-                          });
-                      }}
+                      value={ieQuery.sort ?? ""}
+                      onChange={(e) =>
+                        setIEQuery((state) => ({
+                          ...state,
+                          sort: e.target.value as IESortOptionsType,
+                        }))
+                      }
                     >
-                      {tableColumns
-                        .filter(
-                          (item) =>
-                            item.id !== undefined &&
-                            [
-                              ColumnIdentifier.SourceSystemId,
-                              ColumnIdentifier.ExternalId,
-                              ColumnIdentifier.SIPId,
-                              ColumnIdentifier.IEId,
-                              ColumnIdentifier.Processed,
-                              ColumnIdentifier.Status,
-                            ].includes(item.id)
-                        )
-                        .map((item) => (
-                          <option key={item.id} value={item.id}>
-                            {item.name}
-                          </option>
-                        ))}
+                      <option value="datetimeChanged">
+                        {t("Letzte Änderung")}
+                      </option>
+                      <option value="originSystemId">
+                        {t("ID Quellsystem")}
+                      </option>
+                      <option value="externalId">
+                        {t("External Identifier")}
+                      </option>
+                      <option value="archiveSipId">{t("SIP ID")}</option>
+                      <option value="archiveIeId">{t("IE ID")}</option>
+                      <option value="status">{t("Status")}</option>
                     </Select>
                   </div>
                 </div>
               </div>
+              {selectedIEs.length > 0 && (
+                <div className="bg-cyan-100 px-5 py-2 rounded-t-lg">
+                  <div className="flex w-full items-center justify-between">
+                    <div className="flex flex-row space-x-2">
+                      {ieUpdateProcessInfo.running && <Spinner size="sm" />}
+                      <span className="text-cyan-800">
+                        {t(
+                          ieUpdateProcessInfo.running
+                            ? ieUpdateProcessInfo.status ??
+                                "Verarbeitung wird vorbereitet.."
+                            : `${selectedIEs.length} ${
+                                selectedIEs.length === 1
+                                  ? "Eintrag"
+                                  : "Einträge"
+                              } ausgewählt`
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex flex-row space-x-2">
+                      <Dropdown
+                        label={t("Aktion ausführen")}
+                        disabled={ieUpdateProcessInfo.running}
+                      >
+                        {devMode && (
+                          <Dropdown.Item
+                            onClick={() =>
+                              setIEUpdateProcessInfo({
+                                running: true,
+                                todo: [...selectedIEs],
+                                as: "clear",
+                                messages: [],
+                              })
+                            }
+                          >
+                            {t("zurücksetzen")}
+                          </Dropdown.Item>
+                        )}
+                        <Dropdown.Item
+                          onClick={() =>
+                            setIEUpdateProcessInfo({
+                              running: true,
+                              todo: [...selectedIEs],
+                              as: "ignore",
+                              messages: [],
+                            })
+                          }
+                        >
+                          {t("verwerfen")}
+                        </Dropdown.Item>
+                        <Dropdown.Item
+                          onClick={() =>
+                            setIEUpdateProcessInfo({
+                              running: true,
+                              todo: [...selectedIEs],
+                              as: "planAsBitstream",
+                              messages: [],
+                            })
+                          }
+                        >
+                          {t("als Bitstream verarbeiten")}
+                        </Dropdown.Item>
+                        <Dropdown.Item
+                          onClick={() =>
+                            setIEUpdateProcessInfo({
+                              running: true,
+                              todo: [...selectedIEs],
+                              as: "planToSkipObjectValidation",
+                              messages: [],
+                            })
+                          }
+                        >
+                          {t("ohne Objektvalidierung verarbeiten")}
+                        </Dropdown.Item>
+                      </Dropdown>
+                      <Button
+                        onClick={() => setSelectedIEs([])}
+                        disabled={ieUpdateProcessInfo.running}
+                      >
+                        {t("Abbrechen")}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              <IEUpdateInfoModal
+                show={showIEUpdateInfoModal}
+                ieUpdateProcessInfo={ieUpdateProcessInfo}
+                onConfirm={() => {
+                  setIEUpdateProcessInfo({
+                    running: false,
+                    as: undefined,
+                    todo: [],
+                    messages: [],
+                  });
+                  setShowIEUpdateInfoModal(false);
+                }}
+              />
               <div className="overflow-x-auto">
-                <div className="table w-full p-1 pb-2">
+                <div className="table w-full px-1 pb-2">
                   <Table hoverable>
                     <Table.Head>
+                      <Table.HeadCell>
+                        {selectableIEs.length > 0 && (
+                          <Checkbox
+                            className={
+                              ieUpdateProcessInfo.running
+                                ? "hover:cursor-not-allowed"
+                                : "hover:cursor-pointer"
+                            }
+                            disabled={ieUpdateProcessInfo.running}
+                            checked={selectableIEs.every((id) =>
+                              selectedIEs.includes(id)
+                            )}
+                            onChange={() =>
+                              selectableIEs.every((id) =>
+                                selectedIEs.includes(id)
+                              )
+                                ? setSelectedIEs((state) =>
+                                    state.filter(
+                                      (id) => !selectableIEs.includes(id)
+                                    )
+                                  )
+                                : setSelectedIEs((state) =>
+                                    Array.from(
+                                      new Set([...state, ...selectableIEs])
+                                    )
+                                  )
+                            }
+                          />
+                        )}
+                      </Table.HeadCell>
                       {[
-                        // conditionally add the devMode-column
                         ...tableColumns,
+                        // conditionally add the devMode-column
                         ...(devMode
                           ? [
                               {
@@ -437,79 +765,93 @@ export default function JobDetailsScreen({
                       ))}
                     </Table.Head>
                     <Table.Body className="divide-y">
-                      {records
-                        ?.filter(
-                          (record) =>
-                            filter === null || record.success === filter
-                        )
-                        .filter(
-                          (record) =>
-                            searchFor === null ||
-                            (
-                              "" +
-                              (record.originSystemId?.toLowerCase() ?? "") +
-                              (record.externalId?.toLowerCase() ?? "") +
-                              (record.sipId?.toLowerCase() ?? "") +
-                              (record.ieId?.toLowerCase() ?? "") +
-                              (record.datetimeProcessed
-                                ? reformatDatetime(record.datetimeProcessed, {
-                                    showTime: true,
-                                    devMode,
-                                  })
-                                : "") +
-                              t(formatRecordStatus(record))
-                            ).includes(searchFor.toLowerCase())
-                        )
-                        .sort(
-                          genericSort<RecordInfo>({
-                            field: sortBy,
-                            fallbackValue: "",
-                            caseInsensitive: true,
-                            getValue: (item) => {
-                              switch (sortBy) {
-                                case "sourceSystemId":
-                                  return item.originSystemId ?? "";
-                                case "externalId":
-                                  return item.externalId ?? "";
-                                case "SIPId":
-                                  return item.sipId ?? "";
-                                case "IEId":
-                                  return item.ieId ?? "";
-                                case "processed":
-                                  return item.datetimeProcessed ?? "";
-                                case "status":
-                                  return t(
-                                    formatRecordStatus(item)
-                                  ).toLowerCase();
-                                default:
-                                  return "";
-                              }
-                            },
-                          })
-                        )
-                        .map((record) => (
-                          <Table.Row key={record.reportId}>
-                            {[
-                              // conditionally add the devMode-column
-                              ...tableColumns,
-                              ...(devMode
-                                ? [
-                                    {
-                                      id: ColumnIdentifier.Token,
-                                      name: t("token"),
-                                      Cell: TableCells.TokenCell,
-                                    },
-                                  ]
-                                : []),
-                            ].map((item) => (
-                              <item.Cell key={item.id} record={record} />
-                            ))}
-                          </Table.Row>
-                        ))}
+                      {ies.map((ie) => (
+                        <Table.Row
+                          key={ie.id}
+                          className={
+                            ie.records?.[ie?.latestRecordId ?? ""]?.status ===
+                              "obj-val-error" &&
+                            !(
+                              ie.records?.[ie?.latestRecordId ?? ""]?.ignored ||
+                              ie.records?.[ie?.latestRecordId ?? ""]
+                                ?.bitstream ||
+                              ie.records?.[ie?.latestRecordId ?? ""]
+                                ?.skipObjectValidation
+                            )
+                              ? "bg-red-100 hover:bg-red-50"
+                              : ""
+                          }
+                        >
+                          <Table.Cell>
+                            {selectableIEs.includes(ie.id) && (
+                              <Checkbox
+                                className={
+                                  ieUpdateProcessInfo.running
+                                    ? "hover:cursor-not-allowed"
+                                    : "hover:cursor-pointer"
+                                }
+                                disabled={ieUpdateProcessInfo.running}
+                                checked={selectedIEs.includes(ie.id)}
+                                onChange={() =>
+                                  setSelectedIEs((state) =>
+                                    state.includes(ie.id)
+                                      ? state.filter((id) => id !== ie.id)
+                                      : [...state, ie.id]
+                                  )
+                                }
+                              />
+                            )}
+                          </Table.Cell>
+                          {[
+                            ...tableColumns,
+                            // conditionally add the devMode-column
+                            ...(devMode
+                              ? [
+                                  {
+                                    id: ColumnIdentifier.Token,
+                                    name: t("token"),
+                                    Cell: TableCells.TokenCell,
+                                  },
+                                ]
+                              : []),
+                          ].map((item) => (
+                            <item.Cell key={ie.id + item.id} ie={ie} />
+                          ))}
+                        </Table.Row>
+                      ))}
+                      {ies.length === 0 && (
+                        <Table.Row>
+                          <Table.Cell colSpan={99}>
+                            <div className="flex w-full items-center justify-center">
+                              <span className="text-gray-500">
+                                {t("Keine Ergebnisse")}
+                              </span>
+                            </div>
+                          </Table.Cell>
+                        </Table.Row>
+                      )}
                     </Table.Body>
                   </Table>
                 </div>
               </div>
+              {ies.length > 0 && (
+                <div className="w-full flex flex-col space-y-1 items-center my-1 text-sm">
+                  <span>
+                    {t(
+                      `Seite ${page} von ${Math.ceil(ieCount / ITEMS_PER_PAGE)}`
+                    )}
+                  </span>
+                  <Pagination
+                    currentPage={page}
+                    totalPages={Math.ceil(ieCount / ITEMS_PER_PAGE)}
+                    previousLabel={t("Vorherige")}
+                    nextLabel={t("Nächste")}
+                    layout="pagination"
+                    showIcons
+                    onPageChange={setPage}
+                  />
+                </div>
+              )}
             </div>
           </div>
         )}

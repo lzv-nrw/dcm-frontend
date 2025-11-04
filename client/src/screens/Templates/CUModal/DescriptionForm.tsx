@@ -13,6 +13,7 @@ import {
   ValidationReport,
   Validator,
 } from "../../../utils/forms";
+import {genericSort} from "../../../utils/genericSort";
 import { FormSectionComponentProps } from "../../../components/SectionedForm";
 import { useFormStore } from "./store";
 
@@ -174,9 +175,7 @@ export default function DescriptionForm({
           >
             <option value="">{t("Bitte auswählen")}</option>
             {Object.values(workspaces)
-              .sort((a, b) =>
-                a.name.toLowerCase() > b.name.toLowerCase() ? 1 : -1
-              )
+              .sort(genericSort({ field: "name" }))
               .map(({ id, name }) => (
                 <option key={id} value={id}>
                   {truncateText(name, 70)}

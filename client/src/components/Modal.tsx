@@ -87,7 +87,7 @@ export default function Modal({
     return () => document.removeEventListener("keydown", escapeCallback, false);
   }, [show, escapeCallback]);
 
-  // focus on dialog when being opened
+  // focus on dialog when being opened for accessibility
   useEffect(() => {
     if (!show) return;
     modalRef.current?.focus();
@@ -116,7 +116,7 @@ export default function Modal({
       >
         <div
           ref={modalRef}
-          className={`flex flex-col bg-white rounded-lg shadow grow max-h-[90%] ${
+          className={`flex flex-col bg-white rounded-lg shadow grow max-h-[90%] focus:outline-none ${
             height ? HEIGHT_MAP[height] : "h-auto"
           } ${WIDTH_MAP[width]} ${className}`}
           role="dialog"
@@ -159,7 +159,7 @@ function ModalHeader({
                 </h3>
               ) : null}
             </div>
-            {hideCloseButton !== true ? (
+            {context?.onClose && hideCloseButton !== true ? (
               <div className="mr-2">
                 <button
                   className="rounded-lg bg-transparent p-1.5 text-sm text-gray-400 hover:bg-gray-200 hover:text-gray-900"

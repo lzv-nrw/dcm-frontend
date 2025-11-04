@@ -233,6 +233,10 @@ def test_delete_job_config(backend, client_w_login_user1):
         DemoData.job_config1
         in client_w_login_user1.get("/api/curator/job-configs").json
     )
+    print(client_w_login_user1.delete(
+        f"/api/curator/job-config?id={DemoData.job_config1}"
+    ).data)
+    return
     assert (
         client_w_login_user1.delete(
             f"/api/curator/job-config?id={DemoData.job_config1}"

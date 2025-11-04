@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.39.0] - 2025-11-04
+
+### Changed
+
+- migrated to backend api v5 and updated screens for job-configurations and -details accordingly
+- improved design of table rows in the jobs screen
+- updated display-components for workspaces
+
+### Added
+
+- added context menu to action buttons in jobs screen
+- added download report action to jobs screen
+- added artifact-download
+
+### Fixed
+
+- refactor `genericSort` util function to make sorting more robust; apply it as the default sorting function project-wide
+- extended `getActionTitle` utility to support "download" type
+- fixed `JobDetailsScreen` layout: moved `IEs` indicator from the `Overview` section to the heading of the table, now show the current count
+- fixed fetch user after assigning to a workspace
+
 ## [0.34.0] - 2025-10-13
 
 ### Changed

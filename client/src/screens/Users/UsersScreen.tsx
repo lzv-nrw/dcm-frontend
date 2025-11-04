@@ -233,11 +233,11 @@ export default function UsersScreen({ useACL = false }: UsersScreenProps) {
                 >
                   <option value="">{t("Arbeitsbereich")}</option>
                   {findWorkspaceIds(Object.values(userStore.users))
-                    .sort((a, b) =>
-                      workspaceStore.workspaces[a]?.name.toLowerCase() >
-                      workspaceStore.workspaces[b]?.name.toLowerCase()
-                        ? 1
-                        : -1
+                    .sort(
+                      genericSort({
+                        getValue: (w) =>
+                          workspaceStore.workspaces[w]?.name ?? "",
+                      })
                     )
                     .map((workspace) => (
                       <option key={workspace} value={workspace}>
@@ -350,7 +350,6 @@ export default function UsersScreen({ useACL = false }: UsersScreenProps) {
                         genericSort({
                           field: sortBy,
                           fallbackValue: "-",
-                          caseInsensitive: true,
                         })
                       )
                       .map((user) => (

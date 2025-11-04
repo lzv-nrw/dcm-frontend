@@ -1,6 +1,7 @@
 import { ListGroup } from "flowbite-react";
 
 import t from "../../../utils/translation";
+import { genericSort } from "../../../utils/genericSort";
 import { Template, Workspace } from "../../../types";
 import useGlobalStore from "../../../store";
 
@@ -28,7 +29,7 @@ export default function TemplateForm({
               id &&
               (workspace.templates || []).includes(id)
           )
-          .sort((a, b) => ((a.name ?? "") > (b.name ?? "") ? 1 : -1))
+          .sort(genericSort({ field: "name" }))
           .map((template) => (
             <ListGroup.Item
               key={template.id}

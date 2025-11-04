@@ -88,6 +88,7 @@ def call_backend(
             f"rejected submission with status code {exc_info.status}: "
             f"{exc_info.body}."
         ).replace("\n", "")
+        backend_response.data = exc_info.data
     except _ValidationError as exc_info:
         if not hasattr(exc_info, "errors"):  # ValueError
             backend_response.status_code = 422  # Unprocessable Content

@@ -156,17 +156,96 @@ export interface JobConfig {
   datetimeCreated?: string;
   userModified?: string;
   datetimeModified?: string;
+  IEs?: number;
 }
 
+export type RecordStatus =
+  | "in-process"
+  | "complete"
+  | "process-error"
+  | "import-error"
+  | "obj-val-error"
+  | "ip-val-error"
+  | "build-ip-error"
+  | "prepare-ip-error"
+  | "build-sip-error"
+  | "transfer-error"
+  | "ingest-error";
+
+export type ImportType = "oai" | "hotfolder";
+
 export interface RecordInfo {
-  reportId: string;
-  success: boolean;
+  id: string;
+  jobToken: string;
+  status: RecordStatus;
+  importType?: ImportType;
+  datetimeChanged?: string;
+  ignored?: boolean;
+  bitstream?: boolean;
+  skipObjectValidation?: boolean;
+  oaiIdentifier?: string;
+  oaiDatestamp?: string;
+  hotfolderOriginalPath?: string;
+  archiveIeId?: string;
+  archiveSipId?: string;
+}
+
+export interface IE {
+  id: string;
+  jobConfigId: string;
+  sourceOrganization?: string;
+  originSystemId: string;
+  externalId: string;
+  archiveId: string;
+  latestRecordId?: string;
+  records?: Record<string, RecordInfo>;
+}
+
+export interface StageInfo {
+  completed: boolean;
+  success?: boolean;
   token?: string;
-  originSystemId?: string;
-  externalId?: string;
-  sipId?: string;
-  ieId?: string;
-  datetimeProcessed?: string;
+  logId?: string;
+  artifact?: string;
+}
+
+export interface JobReport {
+  [key: string]: any;
+  data: {
+    success?: boolean;
+    issues: number;
+    records: Record<
+      string,
+      Omit<RecordInfo, "jobToken" | "importType" | "ignored"> & {
+        started: boolean;
+        completed: boolean;
+        sourceOrganization?: string;
+        externalId?: string;
+        originSystemId?: string;
+        ieId?: string;
+        stages: Record<string, StageInfo>;
+      }
+    >;
+  };
+  children: {
+    [key: string]: {
+      [key: string]: any;
+      log: {
+        [key: string]: {
+          body: string;
+          datetime: string;
+          origin: string;
+        }[];
+      };
+    };
+  };
+  log: {
+    [key: string]: {
+      body: string;
+      datetime: string;
+      origin: string;
+    }[];
+  };
 }
 
 export interface JobInfo {
@@ -179,43 +258,7 @@ export interface JobInfo {
   success?: string;
   datetimeStarted?: string;
   datetimeEnded?: string;
-  report?: {
-    [key: string]: any;
-    data: {
-      success?: boolean;
-      records?: Record<
-        string,
-        {
-          success?: boolean;
-          completed?: boolean;
-          stages?: Record<
-            string,
-            { completed?: boolean; success?: boolean; logId?: string }
-          >;
-        }
-      >;
-    };
-    children: {
-      [key: string]: {
-        [key: string]: any;
-        log: {
-          [key: string]: {
-            body: string;
-            datetime: string;
-            origin: string;
-          }[];
-        };
-      };
-    };
-    log: {
-      [key: string]: {
-        body: string;
-        datetime: string;
-        origin: string;
-      }[];
-    };
-  };
+  report?: JobReport;
   templateId?: string;
   workspaceId?: string;
-  records?: RecordInfo[];
 }

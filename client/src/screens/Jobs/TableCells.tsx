@@ -1,7 +1,7 @@
-import { useContext, useEffect, useState } from "react";
+import { useContext, useState } from "react";
 import { useNavigate } from "react-router";
 import { Table, Button, Spinner } from "flowbite-react";
-import { FiPlay, FiEye, FiEdit3, FiTrash2 } from "react-icons/fi";
+import { FiPlay, FiEye, FiMoreVertical } from "react-icons/fi";
 
 import t from "../../utils/translation";
 import { formatJobConfigStatus, getActionTitle } from "../../utils/util";
@@ -9,6 +9,7 @@ import { reformatDatetime } from "../../utils/dateTime";
 import { JobConfig } from "../../types";
 import useGlobalStore from "../../store";
 import ConfirmModal from "../../components/ConfirmModal";
+import ContextMenu from "../../components/ContextMenu";
 import { host, credentialsValue, devMode } from "../../App";
 import MonitorJobModal from "./MonitorJobModal";
 import CUModal from "./CUModal/Modal";
@@ -103,64 +104,25 @@ export function StatusCell({ config }: TableCellProps) {
   return <Table.Cell>{t(formatJobConfigStatus(config))}</Table.Cell>;
 }
 
-export function ArchivedRecordsCell({ config }: TableCellProps) {
-  const [records, setRecords] = useState<null | number>(null);
-  const fetchRecordsByJobConfig = useGlobalStore(
-    (state) => state.job.fetchRecordsByJobConfig
-  );
-
-  const errorHandler = useContext(ErrorMessageContext);
-
-  useEffect(() => {
-    if (!config) return;
-    fetchRecordsByJobConfig({
-      jobConfigId: config.id,
-      success: "true",
-      onSuccess: (records) => setRecords(records.length),
-      onFail: (error) =>
-        errorHandler?.pushMessage({
-          id: `fetch-records-${config.id}`,
-          text: error,
-        }),
-    });
-    // eslint-disable-next-line
-  }, [config, fetchRecordsByJobConfig]);
-
+export function ArchivedIEsCell({ config }: TableCellProps) {
   if (!config) return <Table.HeadCell>{t("Archivierte IEs")}</Table.HeadCell>;
-  return <Table.Cell>{records ?? <Spinner size="xs" />}</Table.Cell>;
+  return <Table.Cell>{config.IEs ?? 0}</Table.Cell>;
 }
 
 export function IssuesCell({ config }: TableCellProps) {
-  const [issues, setIssues] = useState<null | number>(null);
-  const fetchRecordsByJobConfig = useGlobalStore(
-    (state) => state.job.fetchRecordsByJobConfig
+  const latestReport = useGlobalStore(
+    (state) => state.job.jobInfos[config?.latestExec ?? ""]
   );
 
-  const errorHandler = useContext(ErrorMessageContext);
-
-  useEffect(() => {
-    if (!config) return;
-    fetchRecordsByJobConfig({
-      jobConfigId: config.id,
-      success: "false",
-      onSuccess: (records) => setIssues(records.length),
-      onFail: (error) =>
-        errorHandler?.pushMessage({
-          id: `fetch-issues-${config.id}`,
-          text: error,
-        }),
-    });
-    // eslint-disable-next-line
-  }, [config, fetchRecordsByJobConfig]);
-
   if (!config) return <Table.HeadCell>{t("Issues")}</Table.HeadCell>;
-  return <Table.Cell>{issues ?? <Spinner size="xs" />}</Table.Cell>;
+  return <Table.Cell>{latestReport?.report?.data?.issues ?? 0}</Table.Cell>;
 }
 
 export function ActionsCell({ config }: TableCellProps) {
   const acl = useGlobalStore((state) => state.session.acl);
   const workspaces = useGlobalStore((state) => state.workspace.workspaces);
   const templates = useGlobalStore((state) => state.template.templates);
+  const jobInfos = useGlobalStore((state) => state.job.jobInfos);
   const fetchList = useGlobalStore((state) => state.job.fetchList);
   const fetchJobConfig = useGlobalStore((state) => state.job.fetchJobConfig);
   const fetchJobInfo = useGlobalStore((state) => state.job.fetchJobInfo);
@@ -172,6 +134,7 @@ export function ActionsCell({ config }: TableCellProps) {
   const [loadingDelete, setLoadingDelete] = useState(false);
   const [showCUModal, setShowCUModal] = useState(false);
   const [showConfirmDeleteModal, setShowConfirmDeleteModal] = useState(false);
+  const [openContextMenu, setOpenContextMenu] = useState(false);
   const initFromConfig = useFormStore((state) => state.initFromConfig);
   const navigate = useNavigate();
 
@@ -225,6 +188,67 @@ export function ActionsCell({ config }: TableCellProps) {
       });
   }
 
+  function contextMenuItems() {
+    return [
+      ...(acl?.READ_JOB && config?.latestExec
+        ? [
+            {
+              children: t(getActionTitle("download", "Report")),
+              onClick: () =>
+                window.open(
+                  "data:application/json," +
+                    encodeURIComponent(
+                      JSON.stringify(jobInfos[config.latestExec ?? ""])
+                    ),
+                  "_blank"
+                ),
+            },
+          ]
+        : []),
+      ...(acl?.MODIFY_JOBCONFIG
+        ? [
+            {
+              children: t(getActionTitle("edit")),
+              onClick: () => {
+                if (
+                  config === undefined ||
+                  config.workspaceId === undefined ||
+                  workspaces[config.workspaceId] === undefined ||
+                  config.templateId === undefined ||
+                  templates[config.templateId] === undefined
+                ) {
+                  errorHandler?.pushMessage({
+                    id: `update-${config?.id ?? new Date().toISOString()}`,
+                    text: t(
+                      "Etwas ist schief gelaufen, eine der Konfigurationen für Job, Arbeitsbereich oder Template fehlt."
+                    ),
+                  });
+                  return;
+                }
+                initFromConfig(
+                  config,
+                  templates[config.templateId],
+                  workspaces[config.workspaceId]
+                );
+                setShowCUModal(true);
+              },
+            },
+          ]
+        : []),
+      ...(acl?.DELETE_JOBCONFIG
+        ? [
+            {
+              children: t(getActionTitle("delete")),
+              onClick: () => {
+                setLoadingDelete(true);
+                setShowConfirmDeleteModal(true);
+              },
+            },
+          ]
+        : []),
+    ];
+  }
+
   if (!config)
     return <Table.HeadCell className="w-1">{t("Aktionen")}</Table.HeadCell>;
   return (
@@ -240,195 +264,161 @@ export function ActionsCell({ config }: TableCellProps) {
         />
       ) : null}
       <div className="flex flex-row space-x-1">
-        {acl?.CREATE_JOB ? (
-          <>
-            <Button
-              className="p-0 aspect-square items-center"
-              size="xs"
-              title={t(getActionTitle("run", "Job"))}
-              disabled={loadingJobExecution || config.status !== "ok"}
-              onClick={() => {
-                // fetch config to get current latestExec
-                fetchJobConfig({
-                  jobConfigId: config.id,
-                  onFail: (error) =>
-                    errorHandler?.pushMessage({
-                      id: `submit-${config.id}`,
-                      text: t(`Ein Fehler ist aufgetreten: ${error}`),
-                    }),
-                  // fetch latestExec-info if available
-                  onSuccess: (config) => {
-                    if (config.latestExec) {
-                      fetchJobInfo({
-                        token: config.latestExec,
-                        onFail: (error) =>
-                          errorHandler?.pushMessage({
-                            id: `submit-${config.id}`,
-                            text: t(`Ein Fehler ist aufgetreten: ${error}`),
-                          }),
-                        onSuccess: (jobInfo) => {
-                          // offer to watch job that is not yet completed or submit otherwise
-                          if (
-                            ["completed", "aborted"].includes(
-                              jobInfo.status ?? ""
-                            )
-                          )
-                            submitJob();
-                          else setShowConfirmWatchModal(true);
-                        },
-                      });
-                    } else submitJob();
-                  },
-                });
-              }}
-            >
-              {loadingJobExecution ? (
-                <Spinner size="sm" />
-              ) : (
-                <FiPlay size={20} />
-              )}
-            </Button>
-            <ConfirmModal
-              show={showConfirmWatchModal}
-              title={t("Job verfolgen")}
-              onConfirm={() => {
-                setShowConfirmWatchModal(false);
+        <Button
+          className={`p-0 aspect-square items-center ${
+            !(acl?.CREATE_JOB && config.status !== "draft") ? "invisible" : ""
+          }`}
+          size="xs"
+          title={t(getActionTitle("run", "Job"))}
+          disabled={loadingJobExecution || loadingDelete}
+          onClick={() => {
+            // fetch config to get current latestExec
+            fetchJobConfig({
+              jobConfigId: config.id,
+              onFail: (error) =>
+                errorHandler?.pushMessage({
+                  id: `submit-${config.id}`,
+                  text: t(`Ein Fehler ist aufgetreten: ${error}`),
+                }),
+              // fetch latestExec-info if available
+              onSuccess: (config) => {
                 if (config.latestExec) {
-                  setToken(config.latestExec);
-                  setShowMonitorJobModal(true);
-                }
-              }}
-              onCancel={() => {
-                setShowConfirmWatchModal(false);
-              }}
-            >
-              <span>
-                {t(
-                  "Es läuft bereits ein Job mit dieser Konfiguration. Möchten Sie diesen Job verfolgen?"
-                )}
-              </span>
-            </ConfirmModal>
-          </>
-        ) : null}
-        {acl?.READ_JOBCONFIG ? (
-          <Button
-            className="p-0 aspect-square items-center"
-            title={t(getActionTitle("read", "Job"))}
-            size="xs"
-            onClick={() => navigate(`/job-details?id=${config.id}`)}
-          >
-            <FiEye size={20} />
-          </Button>
-        ) : null}
-        {acl?.MODIFY_JOBCONFIG ? (
-          <>
-            <Button
-              className="p-0 aspect-square items-center"
-              size="xs"
-              title={t(getActionTitle("edit", "Job"))}
-              onClick={() => {
-                if (
-                  config === undefined ||
-                  config.workspaceId === undefined ||
-                  workspaces[config.workspaceId] === undefined ||
-                  config.templateId === undefined ||
-                  templates[config.templateId] === undefined
-                ) {
-                  errorHandler?.pushMessage({
-                    id: `update-${config.id}`,
-                    text: t(
-                      "Etwas ist schief gelaufen, eine der Konfigurationen für Job, Arbeitsbereich oder Template fehlt."
-                    ),
+                  fetchJobInfo({
+                    token: config.latestExec,
+                    onFail: (error) =>
+                      errorHandler?.pushMessage({
+                        id: `submit-${config.id}`,
+                        text: t(`Ein Fehler ist aufgetreten: ${error}`),
+                      }),
+                    onSuccess: (jobInfo) => {
+                      // offer to watch job that is not yet completed or submit otherwise
+                      if (
+                        ["completed", "aborted"].includes(jobInfo.status ?? "")
+                      )
+                        submitJob();
+                      else setShowConfirmWatchModal(true);
+                    },
                   });
-                  return;
-                }
-                initFromConfig(
-                  config,
-                  templates[config.templateId],
-                  workspaces[config.workspaceId]
-                );
-                setShowCUModal(true);
-              }}
-            >
-              <FiEdit3 size={20} />
-            </Button>
-            <CUModal
-              show={showCUModal}
-              onClose={() => setShowCUModal(false)}
-              tab={2}
-            />
-          </>
+                } else submitJob();
+              },
+            });
+          }}
+        >
+          {loadingJobExecution ? <Spinner size="sm" /> : <FiPlay size={20} />}
+        </Button>
+        {acl?.CREATE_JOB && config.status !== "draft" ? (
+          <ConfirmModal
+            show={showConfirmWatchModal}
+            title={t("Job verfolgen")}
+            onConfirm={() => {
+              setShowConfirmWatchModal(false);
+              if (config.latestExec) {
+                setToken(config.latestExec);
+                setShowMonitorJobModal(true);
+              }
+            }}
+            onCancel={() => {
+              setShowConfirmWatchModal(false);
+            }}
+          >
+            <span>
+              {t(
+                "Es läuft bereits ein Job mit dieser Konfiguration. Möchten Sie diesen Job verfolgen?"
+              )}
+            </span>
+          </ConfirmModal>
+        ) : null}
+        <Button
+          className={`p-0 aspect-square items-center ${
+            !(acl?.READ_JOBCONFIG && config.status !== "draft")
+              ? "invisible"
+              : ""
+          }`}
+          title={t(getActionTitle("read", "Job"))}
+          size="xs"
+          onClick={() => navigate(`/job-details?id=${config.id}`)}
+          disabled={loadingDelete}
+        >
+          <FiEye size={20} />
+        </Button>
+        <ContextMenu
+          open={openContextMenu}
+          onOpenChange={setOpenContextMenu}
+          items={contextMenuItems()}
+        >
+          <Button
+            className={`p-0 aspect-square items-center ${
+              contextMenuItems().length === 0 ? "invisible" : ""
+            }`}
+            size="xs"
+            disabled={loadingDelete}
+          >
+            <FiMoreVertical size={20} />
+          </Button>
+        </ContextMenu>
+        {acl?.MODIFY_JOBCONFIG ? (
+          <CUModal
+            show={showCUModal}
+            onClose={() => setShowCUModal(false)}
+            tab={2}
+          />
         ) : null}
         {acl?.DELETE_JOBCONFIG ? (
-          <>
-            <Button
-              className="p-0 aspect-square items-center"
-              title={t(getActionTitle("delete", "Job"))}
-              size="xs"
-              disabled={loadingDelete}
-              onClick={() => {
-                setLoadingDelete(true);
-                setShowConfirmDeleteModal(true);
-              }}
-            >
-              {loadingDelete ? <Spinner size="sm" /> : <FiTrash2 size={20} />}
-            </Button>
-            <ConfirmModal
-              show={showConfirmDeleteModal}
-              title={t("Löschen")}
-              onConfirm={() => {
-                setShowConfirmDeleteModal(false);
-                fetch(
-                  host +
-                    "/api/curator/job-config?" +
-                    new URLSearchParams({ id: config.id }).toString(),
-                  {
-                    method: "DELETE",
-                    credentials: credentialsValue,
+          <ConfirmModal
+            show={showConfirmDeleteModal}
+            title={t("Löschen")}
+            onConfirm={() => {
+              setShowConfirmDeleteModal(false);
+              fetch(
+                host +
+                  "/api/curator/job-config?" +
+                  new URLSearchParams({ id: config.id }).toString(),
+                {
+                  method: "DELETE",
+                  credentials: credentialsValue,
+                }
+              )
+                .then((response) => {
+                  setLoadingDelete(false);
+                  if (!response.ok) {
+                    response.text().then((text) =>
+                      errorHandler?.pushMessage({
+                        id: `delete-${config.id}`,
+                        text: `${t(
+                          `Löschen von Jobkonfiguration '${
+                            config.name ?? config.id
+                          }' nicht erfolgreich`
+                        )}: ${text}`,
+                      })
+                    );
+                    return;
                   }
-                )
-                  .then((response) => {
-                    setLoadingDelete(false);
-                    if (!response.ok) {
-                      response.text().then((text) =>
-                        errorHandler?.pushMessage({
-                          id: `delete-${config.id}`,
-                          text: `${t(
-                            `Löschen von Jobkonfiguration '${
-                              config.name ?? config.id
-                            }' nicht erfolgreich`
-                          )}: ${text}`,
-                        })
-                      );
-                      return;
-                    }
-                    fetchList({ replace: true });
-                  })
-                  .catch((error) => {
-                    setLoadingDelete(false);
-                    errorHandler?.pushMessage({
-                      id: `delete-${config.id}`,
-                      text: `${t(
-                        `Fehler beim Löschen von Jobkonfiguration '${
-                          config.name ?? config.id
-                        }'`
-                      )}: ${error.message}`,
-                    });
-                    fetchList({ replace: true });
+                  fetchList({ replace: true });
+                })
+                .catch((error) => {
+                  setLoadingDelete(false);
+                  errorHandler?.pushMessage({
+                    id: `delete-${config.id}`,
+                    text: `${t(
+                      `Fehler beim Löschen von Jobkonfiguration '${
+                        config.name ?? config.id
+                      }'`
+                    )}: ${error.message}`,
                   });
-              }}
-              onCancel={() => {
-                setShowConfirmDeleteModal(false);
-                setLoadingDelete(false);
-              }}
-            >
-              <span>
-                {config.name
-                  ? t(`Job-Konfiguration '${config.name}' löschen?`)
-                  : t("Unbenannte Job-Konfiguration löschen?")}
-              </span>
-            </ConfirmModal>
-          </>
+                  fetchList({ replace: true });
+                });
+            }}
+            onCancel={() => {
+              setShowConfirmDeleteModal(false);
+              setLoadingDelete(false);
+            }}
+          >
+            <span>
+              {config.name
+                ? t(`Job-Konfiguration '${config.name}' löschen?`)
+                : t("Unbenannte Job-Konfiguration löschen?")}
+            </span>
+          </ConfirmModal>
         ) : null}
       </div>
     </Table.Cell>

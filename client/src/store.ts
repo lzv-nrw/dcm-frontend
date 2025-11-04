@@ -10,9 +10,9 @@ import {
   Workspace,
   JobConfig,
   JobInfo,
-  RecordInfo,
   ArchiveConfiguration,
   AppInfo,
+  IE,
 } from "./types";
 import { WidgetConfig } from "./components/Widgets/types";
 import { defaultJSONFetch } from "./utils/api";
@@ -133,10 +133,30 @@ export interface JobStore {
     onSuccess?: (jobInfo: JobInfo) => void;
     onFail?: (error: string) => void;
   }) => void;
-  fetchRecordsByJobConfig: (p: {
+  fetchIE: (p: {
+    id: string;
+    onSuccess?: (ie: IE) => void;
+    onFail?: (error: string) => void;
+  }) => void;
+  fetchIEsByJobConfig: (p: {
     jobConfigId: string;
-    success?: "true" | "false";
-    onSuccess?: (records: RecordInfo[]) => void;
+    filterByStatus?:
+      | "complete"
+      | "inProcess"
+      | "validationError"
+      | "error"
+      | "ignored";
+    filterByText?: string;
+    sort?:
+      | "datetimeChanged"
+      | "originSystemId"
+      | "externalId"
+      | "archiveIeId"
+      | "archiveSipId"
+      | "status";
+    range?: string;
+    count?: "true" | "false";
+    onSuccess?: (data: { count?: number; IEs: IE[] }) => void;
     onFail?: (error: string) => void;
   }) => void;
 }
@@ -320,7 +340,9 @@ const useGlobalStore = create<GlobalStore>()((set, get) => ({
       if (
         useACL &&
         !(
-          get().session.acl?.READ_TEMPLATE || get().session.acl?.MODIFY_TEMPLATE
+          get().session.acl?.CREATE_TEMPLATE ||
+          get().session.acl?.READ_TEMPLATE ||
+          get().session.acl?.MODIFY_TEMPLATE
         )
       )
         return;
@@ -345,7 +367,9 @@ const useGlobalStore = create<GlobalStore>()((set, get) => ({
       if (
         useACL &&
         !(
-          get().session.acl?.READ_TEMPLATE || get().session.acl?.MODIFY_TEMPLATE
+          get().session.acl?.CREATE_TEMPLATE ||
+          get().session.acl?.READ_TEMPLATE ||
+          get().session.acl?.MODIFY_TEMPLATE
         )
       )
         return;
@@ -474,14 +498,42 @@ const useGlobalStore = create<GlobalStore>()((set, get) => ({
         onFail
       );
     },
-    fetchRecordsByJobConfig: ({ jobConfigId, success, onSuccess, onFail }) =>
+    fetchIE: ({
+      id,
+      onSuccess,
+      onFail,
+    }) =>
       defaultJSONFetch(
-        "/api/curator/job/records?" +
+        "/api/curator/job/ie?" +
           new URLSearchParams({
-            ...{ id: jobConfigId },
-            ...(success === undefined ? {} : { success }),
+            ...{ id },
           }).toString(),
-        t("Records zur Konfiguration") +
+        t(`IE '${id}'`),
+        undefined,
+        onSuccess,
+        onFail
+      ),
+    fetchIEsByJobConfig: ({
+      jobConfigId,
+      filterByStatus,
+      filterByText,
+      sort,
+      range,
+      count,
+      onSuccess,
+      onFail,
+    }) =>
+      defaultJSONFetch(
+        "/api/curator/job/ies?" +
+          new URLSearchParams({
+            ...{ jobConfigId },
+            ...(filterByStatus === undefined ? {} : { filterByStatus }),
+            ...(filterByText === undefined ? {} : { filterByText }),
+            ...(sort === undefined ? {} : { sort }),
+            ...(range === undefined ? {} : { range }),
+            ...(count === undefined ? {} : { count }),
+          }).toString(),
+        t("IEs zur Konfiguration") +
           ` '${get().job.jobConfigs[jobConfigId]?.name ?? jobConfigId}'`,
         undefined,
         onSuccess,

@@ -263,7 +263,6 @@ export function HotfolderSourceForm() {
               genericSort<Hotfolder>({
                 field: "name",
                 fallbackValue: "",
-                caseInsensitive: true,
               })
             )
             .map(({ id, name }) => (

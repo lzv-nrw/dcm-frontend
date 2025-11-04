@@ -4,6 +4,7 @@ import { FiEdit3, FiTrash2, FiDelete } from "react-icons/fi";
 
 import t from "../../utils/translation";
 import { getActionTitle } from "../../utils/util";
+import { genericSort } from "../../utils/genericSort";
 import { User } from "../../types";
 import useGlobalStore from "../../store";
 import ConfirmModal from "../../components/ConfirmModal";
@@ -91,7 +92,7 @@ export function GroupsCell({ user }: TableCellProps) {
                       group.workspace ??
                       t("Unbekannt")
                   )
-                  .sort((a, b) => a.localeCompare(b))
+                  .sort(genericSort({ getValue: (w) => w ?? "" }))
                   .join(", ")}
             </List.Item>
           )
@@ -110,9 +111,9 @@ export function ActionsCell({ user }: TableCellProps) {
   const [showCUModal, setShowCUModal] = useState(false);
   const [showConfirmDeleteModal, setShowConfirmDeleteModal] = useState(false);
   const [showConfirmResetModal, setShowConfirmResetModal] = useState(false);
-  const [resetInfo, setResetInfo] = useState<
-  ActivationInfo | undefined
-  >(undefined);
+  const [resetInfo, setResetInfo] = useState<ActivationInfo | undefined>(
+    undefined
+  );
   const initFromConfig = useFormStore((state) => state.initFromConfig);
 
   const errorHandler = useContext(ErrorMessageContext);

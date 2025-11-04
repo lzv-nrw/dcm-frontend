@@ -162,7 +162,7 @@ function OAISetInput({ sets, url, onChange }: OAISetInputProps) {
           <Spinner />
         ) : setOptions ? (
           setOptions
-            .sort((a, b) => (a.setSpec > b.setSpec ? 1 : -1))
+            .sort(genericSort({ field: "setName" }))
             .map((setOption) => (
               <div key={setOption.setSpec} className="flex items-center gap-2">
                 <Checkbox
@@ -572,7 +572,6 @@ export function HotfolderDataSelectionForm({
                   genericSort<HotfolderDirectoryInfo>({
                     field: "name",
                     fallbackValue: "",
-                    caseInsensitive: true,
                   })
                 )
                 .map((d) => (

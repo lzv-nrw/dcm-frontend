@@ -5,6 +5,7 @@ import { FiX } from "react-icons/fi";
 import { GroupMembership, Workspace, GroupInfo } from "../../../types";
 import t from "../../../utils/translation";
 import { truncateText } from "../../../utils/forms";
+import { genericSort } from "../../../utils/genericSort";
 
 interface GroupMembershipInputProps {
   groups: GroupInfo[];
@@ -174,7 +175,7 @@ export default function GroupMembershipInput({
                         name: t("Unbekannter Arbeitsbereich"),
                       }
                   )
-                  .sort((a, b) => (a.name > b.name ? 1 : -1))
+                  .sort(genericSort({ field: "name" }))
                   .map((workspace) => (
                     <option key={workspace.id} value={workspace.id}>
                       {truncateText(workspace.name, 40)}

@@ -3,6 +3,7 @@ import { Card, Popover, Select, Spinner } from "flowbite-react";
 import { FiMoreHorizontal, FiTrash2 } from "react-icons/fi";
 
 import t from "../../utils/translation";
+import { genericSort } from "../../utils/genericSort";
 import { Template, User, Workspace } from "../../types";
 import useGlobalStore from "../../store";
 import { host, credentialsValue } from "../../App";
@@ -56,11 +57,7 @@ export default function WorkspaceDisplay({
   useEffect(() => {
     setUnassignedTemplates(
       Object.values(templates)
-        .sort((a, b) =>
-          a.name && b.name && a.name.toLowerCase() > b.name.toLowerCase()
-            ? 1
-            : -1
-        )
+        .sort(genericSort({ field: "name" }))
         .filter(
           (template) =>
             template.id !== undefined &&
@@ -69,22 +66,17 @@ export default function WorkspaceDisplay({
               .reduce((prev, current) => prev.concat(current), [])
               .includes(template.id)
         )
-        .filter((template) => template.status === "ok")
     );
   }, [templates, workspaces]);
   // find users that are not yet assigned to this workspace
   useEffect(() => {
     setUnassignedUsers(
       Object.values(users)
-        .sort((a, b) =>
-          a.firstname &&
-          a.lastname &&
-          b.firstname &&
-          b.lastname &&
-          a.firstname.toLowerCase() + a.lastname.toLocaleLowerCase() >
-            b.firstname.toLowerCase() + b.lastname.toLocaleLowerCase()
-            ? 1
-            : -1
+        .sort(
+          genericSort<User>({
+            getValue: (user) =>
+              (user?.firstname ?? "") + (user?.lastname ?? ""),
+          })
         )
         .filter((user) => !(workspace.users ?? []).includes(user.id))
     );
@@ -283,34 +275,12 @@ export default function WorkspaceDisplay({
               </span>
             </ConfirmModal>
           </div>
-          <h5 className="font-semibold">{t("Templates")}</h5>
-          <div className="p-2 my-2 grid grid-cols-2 gap-4 overflow-y-auto max-h-64">
-            {(
-              workspace.templates?.filter(
-                (template) => templates[template]?.status === "ok"
-              ) ?? []
-            ).map((template) => (
-              <div
-                key={template}
-                className="flex items-start p-2 rounded-lg border border-gray-200 bg-white shadow-md select-none"
-              >
-                <TemplateDisplay
-                  template={templates[template]}
-                  onTrash={(e) => {
-                    e.stopPropagation();
-                    if (loading || !workspace.templates?.includes(template))
-                      return;
-                    setLoading(true);
-                    delete templates[template].workspaceId;
-                    putTemplate(templates[template]);
-                  }}
-                />
-              </div>
-            ))}
-            {(useACL && !acl?.MODIFY_TEMPLATE) ||
-            unassignedTemplates.length === 0 ? null : (
+          <div className="px-3 h-8 flex justify-between items-center">
+            <h5 className="font-semibold">{t("Templates")}</h5>
+            {(useACL && !acl?.MODIFY_TEMPLATE) || (
               <Popover
                 open={openAddTemplate}
+                onOpenChange={setOpenAddTemplate}
                 placement="top"
                 content={
                   <div className="w-80 bg-white select-none">
@@ -318,7 +288,7 @@ export default function WorkspaceDisplay({
                       id="default-popover"
                       className="font-semibold bg-gray-100 px-2 py-3"
                     >
-                      Template hinzufügen
+                      {t("Template hinzufügen")}
                     </h3>
                     {unassignedTemplates.map((template) => (
                       <div
@@ -349,108 +319,159 @@ export default function WorkspaceDisplay({
                 onClick={(e) => {
                   e.stopPropagation();
                 }}
-                onOpenChange={setOpenAddTemplate}
               >
                 <div>
                   <Card
-                    className="flex justify-center items-center bg-white hover:bg-gray-100 transition duration-200 ease-in-out hover:cursor-pointer"
+                    className={
+                      "h-8 flex justify-center max-w-sm items-center " +
+                      (unassignedTemplates.length === 0
+                        ? "bg-white opacity-50 shadow-none pointer-events-none"
+                        : "bg-white hover:bg-gray-100 transition duration-200 ease-in-out hover:cursor-pointer")
+                    }
                     onClick={(e) => {
                       e.stopPropagation();
                       setOpenAddTemplate(true);
                     }}
                   >
-                    <span className="font-bold text-5xl select-none">+</span>
+                    <span className="select-none">
+                      {t("Template hinzufügen")}
+                    </span>
                   </Card>
                 </div>
               </Popover>
             )}
           </div>
-          <hr className="h-px my-4 bg-gray-400 border-0" />
-          <h5 className="font-semibold">{t("Nutzer")}</h5>
-          <div className="p-2 my-2 grid grid-cols-2 gap-4 overflow-y-auto max-h-64">
-            {(workspace.users ?? [])
-              .sort((a, b) => (users[a]?.id > users[b]?.id ? 1 : -1))
-              .map((user) => (
-                <div
-                  key={user}
-                  className="flex flex-col items-start p-1 rounded-lg border border-gray-200 bg-white shadow-md select-none"
-                >
-                  <UserDisplay
-                    className="w-full"
-                    userInfo={users[user]}
-                    badges={(users[user]?.groups ?? [])
-                      .filter((group) => group.workspace === undefined)
-                      .map((group) => ({
-                        title:
-                          groups?.find((g) => g.id === group.id)?.name ?? "?",
-                      }))}
-                    icon={
-                      <div
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (loading || !workspace.users?.includes(user))
-                            return;
-                          setLoading(true);
-                          putUser({
-                            ...users[user],
-                            groups: users[user].groups?.filter(
-                              (group) => group.workspace !== workspace.id
-                            ),
-                          });
-                        }}
-                        className="right-0 top-0 absolute p-1 rounded-full text-gray-500 hover:text-black hover:bg-gray-200 hover:cursor-pointer"
-                      >
-                        <FiTrash2 size="20" />
-                      </div>
-                    }
-                  />
-                  <Select
-                    className="p-2 w-64"
-                    id={users[user]?.id + workspace.id + "-group-select"}
-                    value={
-                      users[user]?.groups?.find(
-                        (group) => group.workspace === workspace.id
-                      )?.id
-                    }
-                    onChange={(e) =>
-                      putUser({
-                        ...users[user],
-                        groups: [
-                          ...(users[user].groups ?? []).filter(
-                            (group) => group.workspace !== workspace.id
-                          ),
-                          {
-                            id: e.target.value,
-                            workspace: workspace.id,
-                          },
-                        ],
-                      })
-                    }
+          <div className="p-2 my-2 grid grid-cols-2 gap-4 overflow-y-auto max-h-72">
+            {workspace.templates?.length ? (
+              (workspace.templates ?? [])
+                .sort(
+                  genericSort({
+                    getValue: (template) => templates[template]?.name ?? "",
+                  })
+                )
+                .map((template) => (
+                  <div
+                    key={template}
+                    className="flex items-start p-2 rounded-lg border border-gray-200 bg-white shadow-md select-none"
                   >
-                    {(groups ?? [])
-                      .filter((group) => group.workspaces)
-                      .map((group) => (
-                        <option key={group.id} value={group.id}>
-                          {group.name}
-                        </option>
-                      ))}
-                  </Select>
-                </div>
-              ))}
-            {(useACL && !acl?.MODIFY_USERCONFIG) ||
-            unassignedUsers.length === 0 ? null : (
+                    <TemplateDisplay
+                      template={templates[template]}
+                      full={true}
+                      onTrash={(e) => {
+                        e.stopPropagation();
+                        if (loading || !workspace.templates?.includes(template))
+                          return;
+                        setLoading(true);
+                        delete templates[template].workspaceId;
+                        putTemplate(templates[template]);
+                      }}
+                    />
+                  </div>
+                ))
+            ) : (
+              <p>{t("Sie haben noch keine Templates hinzugefügt.")}</p>
+            )}
+          </div>
+          <hr className="h-px my-4 bg-gray-400 border-0" />
+          <div className="px-3 h-8 flex justify-between items-center">
+            <h5 className="font-semibold">{t("Nutzer")}</h5>
+            {(useACL && !acl?.MODIFY_USERCONFIG) || (
               <div>
                 <Card
-                  className="flex justify-center items-center bg-white hover:bg-gray-100 transition duration-200 ease-in-out hover:cursor-pointer"
+                  className={
+                    "h-8 flex justify-center max-w-sm items-center " +
+                    (unassignedUsers.length === 0
+                      ? "bg-white opacity-50 shadow-none pointer-events-none"
+                      : "bg-white hover:bg-gray-100 transition duration-200 ease-in-out hover:cursor-pointer")
+                  }
                   onClick={(e) => {
                     e.stopPropagation();
                     setOpenAddTemplate(false);
                     setOpenAddUserModal(true);
                   }}
                 >
-                  <span className="font-bold text-5xl select-none">+</span>
+                  <span className="select-none">{t("Nutzer hinzufügen")}</span>
                 </Card>
               </div>
+            )}
+          </div>
+          <div className="p-2 my-2 grid grid-cols-2 gap-4 overflow-y-auto max-h-[22rem]">
+            {workspace.users?.length ? (
+              (workspace.users ?? [])
+                .sort(
+                  genericSort<string>({
+                    getValue: (user) => users[user]?.id ?? "",
+                  })
+                )
+                .map((user) => (
+                  <div
+                    key={user}
+                    className="flex flex-col items-start p-1 rounded-lg border border-gray-200 bg-white shadow-md select-none"
+                  >
+                    <UserDisplay
+                      className="w-full"
+                      userInfo={users[user]}
+                      badges={(users[user]?.groups ?? [])
+                        .filter((group) => group.workspace === undefined)
+                        .map((group) => ({
+                          title:
+                            groups?.find((g) => g.id === group.id)?.name ?? "?",
+                        }))}
+                      icon={
+                        <div
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (loading || !workspace.users?.includes(user))
+                              return;
+                            setLoading(true);
+                            putUser({
+                              ...users[user],
+                              groups: users[user].groups?.filter(
+                                (group) => group.workspace !== workspace.id
+                              ),
+                            });
+                          }}
+                          className="right-0 top-0 absolute p-1 rounded-full text-gray-500 hover:text-black hover:bg-gray-200 hover:cursor-pointer"
+                        >
+                          <FiTrash2 size="20" />
+                        </div>
+                      }
+                    />
+                    <Select
+                      className="p-2 w-64"
+                      id={users[user]?.id + workspace.id + "-group-select"}
+                      value={
+                        users[user]?.groups?.find(
+                          (group) => group.workspace === workspace.id
+                        )?.id
+                      }
+                      onChange={(e) =>
+                        putUser({
+                          ...users[user],
+                          groups: [
+                            ...(users[user].groups ?? []).filter(
+                              (group) => group.workspace !== workspace.id
+                            ),
+                            {
+                              id: e.target.value,
+                              workspace: workspace.id,
+                            },
+                          ],
+                        })
+                      }
+                    >
+                      {(groups ?? [])
+                        .filter((group) => group.workspaces)
+                        .map((group) => (
+                          <option key={group.id} value={group.id}>
+                            {group.name}
+                          </option>
+                        ))}
+                    </Select>
+                  </div>
+                ))
+            ) : (
+              <p>{t("Sie haben noch keine Nutzer hinzugefügt.")}</p>
             )}
           </div>
         </Card>

@@ -4,7 +4,9 @@ import { Button, Spinner, Table } from "flowbite-react";
 import { FiCheckCircle, FiXCircle } from "react-icons/fi";
 
 import t from "../../../utils/translation";
+import { genericSort } from "../../../utils/genericSort";
 import { OAITemplateInfo } from "../../../types";
+import { getDownloadTargetsFromReport } from "../../../utils/util";
 import useGlobalStore from "../../../store";
 import { credentialsValue, devMode, host } from "../../../App";
 import { FormSectionComponentProps } from "../../../components/SectionedForm";
@@ -46,6 +48,11 @@ export function SummaryForm({ name }: FormSectionComponentProps) {
   );
   const [testJobRunning, setTestJobRunning] = useState(false);
   const [testJobToken, setTestJobToken] = useState<string | null>(null);
+  const [bundleJobRunning, setBundleJobRunning] = useState(false);
+  const [bundleJobToken, setBundleJobToken] = useState<string | null>(null);
+  const [bundleJobRecordId, setBundleJobRecordId] = useState<string | null>(
+    null
+  );
 
   // fetch jobInfo for test-job until done
   useEffect(() => {
@@ -73,6 +80,80 @@ export function SummaryForm({ name }: FormSectionComponentProps) {
     // eslint-disable-next-line
   }, [testJobToken, jobInfos, fetchJobInfo]);
 
+  // fetch report for bundle-job until done
+  useEffect(() => {
+    if (!bundleJobToken) return;
+    const interval = setInterval(() => {
+      fetch(
+        host +
+          "/api/curator/job/artifacts/report?" +
+          new URLSearchParams({ token: bundleJobToken }).toString(),
+        {
+          method: "GET",
+          credentials: credentialsValue,
+        }
+      )
+        .then((response) => {
+          if (!response.ok) {
+            // 503 is expected while job is still running
+            if (response.status !== 503) {
+              setBundleJobRunning(false);
+              setBundleJobToken(null);
+              setBundleJobRecordId(null);
+              clearInterval(interval);
+              response.text().then((text) =>
+                errorHandler?.pushMessage({
+                  id: "bundle-report-bad-response",
+                  text: `${t(
+                    "Abfrage des Reports zum Bauen eines Archivs von Job-Artefakten fehlgeschlagen"
+                  )}: ${text}`,
+                })
+              );
+            }
+            return;
+          }
+          clearInterval(interval);
+          response.json().then((json) => {
+            if (json?.data?.bundle?.id)
+              window.open(
+                host +
+                  "/api/curator/job/artifacts/bundle?" +
+                  new URLSearchParams({
+                    id: json.data.bundle.id,
+                  }).toString(),
+                "_blank"
+              );
+            setBundleJobRunning(false);
+            setBundleJobToken(null);
+            setBundleJobRecordId(null);
+            if (json?.data?.success ?? false) return;
+            for (const msg of json?.log?.ERROR ?? []) {
+              errorHandler?.pushMessage({
+                id: `bundling-job-not-successful-${msg.datetime}`,
+                text: `${t(
+                  "Fehler beim Bauen eines Archivs von Job-Artefakten"
+                )}: ${msg.body}`,
+              });
+            }
+          });
+        })
+        .catch((error) => {
+          setBundleJobRunning(false);
+          setBundleJobToken(null);
+          setBundleJobRecordId(null);
+          clearInterval(interval);
+          errorHandler?.pushMessage({
+            id: `bundle-report-error`,
+            text: `${t(
+              "Abfrage des Reports zum Bauen eines Archivs von Job-Artefakten fehlgeschlagen"
+            )}: ${error.message}`,
+          });
+        });
+    }, 1000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line
+  }, [bundleJobToken]);
+
   /**
    * Processes an array of operations into an array of unique targetFields.
    * @param operations array of operations
@@ -81,7 +162,7 @@ export function SummaryForm({ name }: FormSectionComponentProps) {
   function getOperationsTargetFields(operations: BaseOperation[]): string[] {
     return Array.from(
       new Set(operations.map((operation) => operation.targetField))
-    ).sort();
+    ).sort(genericSort<string>({ getValue: (f) => f ?? "" }));
   }
 
   /**
@@ -118,7 +199,7 @@ export function SummaryForm({ name }: FormSectionComponentProps) {
     <div>
       <div className="flex justify-end sticky top-0 px-6">
         <Button
-          disabled={testJobRunning}
+          disabled={testJobRunning || bundleJobRunning}
           onClick={() => {
             if (template === undefined) {
               alert("Missing template.");
@@ -214,7 +295,11 @@ export function SummaryForm({ name }: FormSectionComponentProps) {
                       {Object.entries(
                         jobInfos[testJobToken].report?.data?.records ?? {}
                       )
-                        .sort(([a], [b]) => (a > b ? 1 : -1))
+                        .sort(
+                          genericSort<[string, any]>({
+                            getValue: ([key]) => key,
+                          })
+                        )
                         .map(([recordId, record], index) => (
                           <Table.Row key={recordId}>
                             <Table.Cell>{index + 1}</Table.Cell>
@@ -282,8 +367,79 @@ export function SummaryForm({ name }: FormSectionComponentProps) {
                             </Table.Cell>
                             <Table.Cell>
                               <div className="flex flex-row space-x-1 grow">
-                                <Button disabled size="xs">
-                                  {t("Daten")}
+                                <Button
+                                  disabled={
+                                    bundleJobRunning ||
+                                    !(
+                                      record?.stages?.import_ies?.success ??
+                                      record?.stages?.import_ips?.success ??
+                                      false
+                                    )
+                                  }
+                                  size="xs"
+                                  onClick={() => {
+                                    const targets =
+                                      getDownloadTargetsFromReport(
+                                        recordId,
+                                        jobInfos[testJobToken]?.report
+                                      );
+
+                                    // send request
+                                    setBundleJobRunning(true);
+                                    setBundleJobRecordId(recordId);
+                                    fetch(
+                                      host +
+                                        "/api/curator/job/artifacts/bundle",
+                                      {
+                                        method: "POST",
+                                        credentials: credentialsValue,
+                                        headers: {
+                                          "Content-Type": "application/json",
+                                        },
+                                        body: JSON.stringify({
+                                          bundle: {
+                                            targets: targets.map((target) => ({
+                                              path: target,
+                                            })),
+                                          },
+                                        }),
+                                      }
+                                    )
+                                      .then((response) => {
+                                        if (!response.ok) {
+                                          setBundleJobRunning(false);
+                                          setBundleJobRecordId(null);
+                                          response.text().then((text) =>
+                                            errorHandler?.pushMessage({
+                                              id: "bundle-submission-bad-response",
+                                              text: `${t(
+                                                "Absenden eines Jobs zum Bauen eines Archivs von Job-Artefakten fehlgeschlagen"
+                                              )}: ${text}`,
+                                            })
+                                          );
+                                          return;
+                                        }
+                                        response.json().then((json) => {
+                                          setBundleJobToken(json.value);
+                                        });
+                                      })
+                                      .catch((error) => {
+                                        setBundleJobRunning(false);
+                                        setBundleJobRecordId(null);
+                                        errorHandler?.pushMessage({
+                                          id: `bundle-submission-error`,
+                                          text: `${t(
+                                            "Absenden eines Jobs zum Bauen eines Archivs von Job-Artefakten fehlgeschlagen"
+                                          )}: ${error.message}`,
+                                        });
+                                      });
+                                  }}
+                                >
+                                  {recordId === bundleJobRecordId ? (
+                                    <Spinner size="sm" />
+                                  ) : (
+                                    t("Daten")
+                                  )}
                                 </Button>
                                 <Button
                                   size="xs"
@@ -294,7 +450,7 @@ export function SummaryForm({ name }: FormSectionComponentProps) {
                                           encodeURIComponent(
                                             JSON.stringify({
                                               ...record,
-                                              recordId,
+                                              recordId: recordId,
                                               stages: Object.fromEntries(
                                                 Object.entries(
                                                   record.stages ?? {}
