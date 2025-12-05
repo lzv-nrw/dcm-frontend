@@ -77,8 +77,6 @@ def test_post_job(
     )
 
 
-# FIXME
-@pytest.mark.skip(reason="currently not supported")
 def test_post_test_job(
     run_service,
     backend,
@@ -163,6 +161,28 @@ def test_get_job_info(
     )
     assert response.status_code == 200
     assert response.json.get("token") == DemoData.token1
+
+    # ok with keys (multiple and unknown)
+    keys = "jobConfigId,status,unknown,workspaceId"
+    response = client_w_login.get(
+        f"/api/curator/job/info?token={DemoData.token1}&keys={keys}"
+    )
+    assert response.status_code == 200
+    # unknown keys are ignored
+    assert sorted(response.json.keys()) == sorted(
+        ["token", "workspaceId", "jobConfigId", "status"]
+    )
+
+    # ok with keys (single, without 'workspaceId')
+    keys = "jobConfigId"
+    response = client_w_login.get(
+        f"/api/curator/job/info?token={DemoData.token1}&keys={keys}"
+    )
+    assert response.status_code == 200
+    # 'workspaceId' is automatically added in the response
+    assert sorted(response.json.keys()) == sorted(
+        ["token", "workspaceId", "jobConfigId"]
+    )
 
     # switch to user2
     assert client_w_login.get("/api/auth/logout").status_code == 200

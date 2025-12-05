@@ -8,7 +8,6 @@ import { FormSectionComponentProps } from "../../../components/SectionedForm";
 import Datepicker from "../../../components/Datepicker";
 import Timepicker from "../../../components/Timepicker";
 import { useFormStore } from "./store";
-import { OaiDataSelection } from "./DataSelectionForm";
 
 export type SchedulingFormChildren = never;
 export type SchedulingFormValidator = Validator<SchedulingFormChildren>;
@@ -26,6 +25,7 @@ export interface Scheduling {
   date?: Date;
   time?: Date;
   schedule?: ScheduleType;
+  active?: boolean;
 }
 
 /**
@@ -49,8 +49,6 @@ export function SchedulingForm({ name, active }: FormSectionComponentProps) {
   const [scheduling, setScheduling] = useFormStore(
     useShallow((state) => [state.scheduling, state.setScheduling])
   );
-  const template = useFormStore((state) => state.template);
-  const dataSelection = useFormStore((state) => state.dataSelection);
   const [validator, setCurrentValidationReport] = useFormStore(
     useShallow((state) => [state.validator, state.setCurrentValidationReport])
   );
@@ -123,14 +121,7 @@ export function SchedulingForm({ name, active }: FormSectionComponentProps) {
             }
           >
             {Object.entries(ScheduleTypeInfo).map(([id, info]) => (
-              <option
-                key={id}
-                value={id}
-                disabled={
-                  template?.type === "oai" &&
-                  (dataSelection as OaiDataSelection)?.from !== undefined
-                }
-              >
+              <option key={id} value={id}>
                 {t(info.label)}
               </option>
             ))}

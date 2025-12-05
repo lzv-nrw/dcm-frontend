@@ -43,6 +43,7 @@ enum ColumnIdentifier {
   SIPId = "SIPId",
   IEId = "IEId",
   Processed = "processed",
+  PreservationLevel = "preservationLevel",
   Status = "status",
   Token = "token",
   Download = "download",
@@ -73,6 +74,11 @@ const tableColumns: TableColumn[] = [
     Cell: TableCells.ProcessedDatetimeCell,
   },
   {
+    id: ColumnIdentifier.PreservationLevel,
+    name: t("Preservation Level"),
+    Cell: TableCells.PreservationLevelCell,
+  },
+  {
     id: ColumnIdentifier.Status,
     name: t("Status"),
     Cell: TableCells.StatusCell,
@@ -97,21 +103,23 @@ export function formatRecordStatus(record?: RecordInfo): string {
     case "in-process":
       return "in Verarbeitung";
     case "import-error":
-      return "Importfehler";
+      return "Import fehlgeschlagen";
     case "build-ip-error":
+      return "IP-Konvertierung fehlgeschlagen";
     case "prepare-ip-error":
-      return "IP-Konvertierungsfehler";
+      return "IP-Vorbereitung fehlgeschlagen";
     case "build-sip-error":
-      return "SIP-Konvertierungsfehler";
+      return "SIP-Konvertierung fehlgeschlagen";
     case "transfer-error":
-      return "Transferfehler";
+      return "Transfer fehlgeschlagen";
     case "ingest-error":
-      return "Ingest-Fehler";
+      return "Ingest fehlgeschlagen";
     case "process-error":
-      return "Fehler";
+      return "sonstiger Fehler";
     case "ip-val-error":
+      return "Strukturvalidierung fehlgeschlagen";
     case "obj-val-error":
-      return "Validierungsfehler";
+      return "Objektvalidierung fehlgeschlagen";
   }
 }
 
@@ -562,12 +570,13 @@ export default function JobDetailsScreen({
                     }
                   >
                     <option value="">{t("Status")}</option>
-                    <option value="complete">{t("Archiviert")}</option>
+                    <option value="complete">{t("archiviert")}</option>
+                    <option value="inProcess">{t("in Verarbeitung")}</option>
                     <option value="validationError">
-                      {t("Validierungsfehler")}
+                      {t("Validierung fehlgeschlagen")}
                     </option>
-                    <option value="error">{t("Fehler")}</option>
-                    <option value="ignored">{t("Verworfen")}</option>
+                    <option value="error">{t("alle Fehler")}</option>
+                    <option value="ignored">{t("verworfen")}</option>
                   </Select>
                 </div>
                 <div className="flex justify-between items-center">
@@ -659,12 +668,12 @@ export default function JobDetailsScreen({
                             setIEUpdateProcessInfo({
                               running: true,
                               todo: [...selectedIEs],
-                              as: "ignore",
+                              as: "planToSkipObjectValidation",
                               messages: [],
                             })
                           }
                         >
-                          {t("verwerfen")}
+                          {t("Fehler ignorieren")}
                         </Dropdown.Item>
                         <Dropdown.Item
                           onClick={() =>
@@ -676,19 +685,19 @@ export default function JobDetailsScreen({
                             })
                           }
                         >
-                          {t("als Bitstream verarbeiten")}
+                          {t("Als Bitstream archivieren")}
                         </Dropdown.Item>
                         <Dropdown.Item
                           onClick={() =>
                             setIEUpdateProcessInfo({
                               running: true,
                               todo: [...selectedIEs],
-                              as: "planToSkipObjectValidation",
+                              as: "ignore",
                               messages: [],
                             })
                           }
                         >
-                          {t("ohne Objektvalidierung verarbeiten")}
+                          {t("Nicht archivieren")}
                         </Dropdown.Item>
                       </Dropdown>
                       <Button
@@ -765,7 +774,7 @@ export default function JobDetailsScreen({
                       ))}
                     </Table.Head>
                     <Table.Body className="divide-y">
-                      {ies.map((ie) => (
+                      {ies.map((ie, index) => (
                         <Table.Row
                           key={ie.id}
                           className={
@@ -815,7 +824,15 @@ export default function JobDetailsScreen({
                                 ]
                               : []),
                           ].map((item) => (
-                            <item.Cell key={ie.id + item.id} ie={ie} />
+                            <item.Cell
+                              key={ie.id + item.id}
+                              ie={ie}
+                              index={
+                                devMode
+                                  ? undefined
+                                  : (page - 1) * ITEMS_PER_PAGE + index
+                              }
+                            />
                           ))}
                         </Table.Row>
                       ))}

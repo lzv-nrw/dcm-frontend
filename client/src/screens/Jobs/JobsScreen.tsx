@@ -6,8 +6,9 @@ import t from "../../utils/translation";
 import { truncateText } from "../../utils/forms";
 import { formatJobConfigStatus } from "../../utils/util";
 import { genericSort } from "../../utils/genericSort";
-import { JobConfig } from "../../types";
+import { JobConfig, JobInfo } from "../../types";
 import useGlobalStore from "../../store";
+import JobPoller from "./JobPoller";
 import MessageBox, {
   MessageHandler,
   useMessageHandler,
@@ -18,6 +19,7 @@ import * as TableCells from "./TableCells";
 import MonitorJobModal from "./MonitorJobModal";
 
 enum ColumnIdentifier {
+  SchedulerState = "schedulerState",
   Name = "name",
   Template = "template",
   Workspace = "workspace",
@@ -25,7 +27,7 @@ enum ColumnIdentifier {
   ScheduledExec = "scheduledExec",
   Schedule = "schedule",
   Status = "status",
-  ArchivedIEs = "archivedIEs",
+  ProcessedIEs = "processedIEs",
   Issues = "issues",
   Id = "id",
   Actions = "actions",
@@ -38,6 +40,11 @@ interface TableColumn {
 }
 
 const tableColumns: TableColumn[] = [
+  {
+    id: ColumnIdentifier.SchedulerState,
+    name: t("Zeitplan"),
+    Cell: TableCells.SchedulerStateCell,
+  },
   { id: ColumnIdentifier.Name, name: t("Titel"), Cell: TableCells.NameCell },
   {
     id: ColumnIdentifier.Template,
@@ -70,9 +77,9 @@ const tableColumns: TableColumn[] = [
     Cell: TableCells.StatusCell,
   },
   {
-    id: ColumnIdentifier.ArchivedIEs,
-    name: t("Archivierte IEs"),
-    Cell: TableCells.ArchivedIEsCell,
+    id: ColumnIdentifier.ProcessedIEs,
+    name: t("Verarbeitete IEs"),
+    Cell: TableCells.ProcessedIEsCell,
   },
   {
     id: ColumnIdentifier.Issues,
@@ -104,6 +111,7 @@ export default function JobsScreen({ useACL = false }: JobsScreenProps) {
 
   const [showCUModal, setShowCUModal] = useState(false);
   const [showMonitorJobModal, setShowMonitorJobModal] = useState(false);
+  const [isAnyModalOpen, setIsAnyModalOpen] = useState(false);
 
   const workspaceStore = useGlobalStore((state) => state.workspace);
   const templateStore = useGlobalStore((state) => state.template);
@@ -111,6 +119,10 @@ export default function JobsScreen({ useACL = false }: JobsScreenProps) {
   const jobInfos = useGlobalStore((state) => state.job.jobInfos);
 
   const acl = useGlobalStore((state) => state.session.acl);
+
+  const [browserTabActive, setBrowserTabActive] = useState<boolean>(
+    document.visibilityState === "visible"
+  );
 
   // run store-logic
   // * fetch all jobConfigIds on first load
@@ -204,6 +216,21 @@ export default function JobsScreen({ useACL = false }: JobsScreenProps) {
   }, [workspaceStore.workspaceIds]);
   // end run store-logic
 
+  // check browser tab activity
+  useEffect(() => {
+    const stateHandler = () => {
+      setBrowserTabActive(document.visibilityState === "visible");
+    };
+    document.addEventListener("visibilitychange", stateHandler);
+    return () => document.removeEventListener("visibilitychange", stateHandler);
+    // eslint-disable-next-line
+  }, []);
+
+  useEffect(() => {
+    setIsAnyModalOpen(showCUModal || showMonitorJobModal);
+    // eslint-disable-next-line
+  }, [showCUModal, showMonitorJobModal]);
+
   /**
    * Extracts an array of unique workspace ids from given job-configurations.
    * @param users Array of users.
@@ -215,6 +242,29 @@ export default function JobsScreen({ useACL = false }: JobsScreenProps) {
         configs
           .filter((config) => config.workspaceId !== undefined)
           .map((config) => (config as { workspaceId: string }).workspaceId)
+      )
+    );
+  }
+
+  /**
+   * Retrieves all unique status values across all job configurations.
+   *
+   * @param config jobs configuration.
+   * @param info jobs information.
+   * @returns an array of unique status values for the job configurations.
+   */
+  function getAllStatusOptions(
+    jobConfigs: Record<string, JobConfig>,
+    jobInfos: Record<string, JobInfo>
+  ): string[] {
+    return Array.from(
+      new Set(
+        Object.values(jobConfigs).map((config) =>
+          formatJobConfigStatus(
+            config,
+            config.latestExec ? jobInfos[config.latestExec] : undefined
+          )
+        )
       )
     );
   }
@@ -296,53 +346,18 @@ export default function JobsScreen({ useACL = false }: JobsScreenProps) {
                   onChange={(event) => setStatusFilter(event.target.value)}
                 >
                   <option value="">{t("Status")}</option>
-                  {
-                    // fill in options by generating the labels that are also
-                    // used in the table cells
-                  }
-                  <option
-                    value={formatJobConfigStatus({
-                      id: "",
-                      status: "ok",
-                      schedule: { active: false },
-                    })}
-                  >
-                    {t(
-                      formatJobConfigStatus({
-                        id: "",
-                        status: "ok",
-                        schedule: { active: false },
+
+                  {getAllStatusOptions(jobStore.jobConfigs, jobInfos)
+                    .sort(
+                      genericSort<string>({
+                        getValue: (status) => status,
                       })
-                    )}
-                  </option>
-                  <option
-                    value={formatJobConfigStatus({
-                      id: "",
-                      status: "ok",
-                      schedule: { active: true },
-                    })}
-                  >
-                    {t(
-                      formatJobConfigStatus({
-                        id: "",
-                        status: "ok",
-                        schedule: { active: true },
-                      })
-                    )}
-                  </option>
-                  <option
-                    value={formatJobConfigStatus({
-                      id: "",
-                      status: "draft",
-                    })}
-                  >
-                    {t(
-                      formatJobConfigStatus({
-                        id: "",
-                        status: "draft",
-                      })
-                    )}
-                  </option>
+                    )
+                    .map((status) => (
+                      <option key={status} value={status}>
+                        {t(status)}
+                      </option>
+                    ))}
                 </Select>
               </div>
               <div className="flex justify-between items-center">
@@ -410,7 +425,7 @@ export default function JobsScreen({ useACL = false }: JobsScreenProps) {
               </div>
             </div>
             <div className="overflow-x-auto">
-              <div className="table w-full p-1 pb-2">
+              <div className="min-h-64 table w-full p-1 pb-2">
                 <Table hoverable>
                   <Table.Head>
                     {tableColumns.map((item) => (
@@ -422,7 +437,11 @@ export default function JobsScreen({ useACL = false }: JobsScreenProps) {
                       .filter(
                         (config) =>
                           statusFilter === "" ||
-                          statusFilter === formatJobConfigStatus(config)
+                          statusFilter ===
+                            formatJobConfigStatus(
+                              config,
+                              jobInfos[config.latestExec ?? ""]
+                            )
                       )
                       .filter(
                         (config) =>
@@ -479,15 +498,18 @@ export default function JobsScreen({ useACL = false }: JobsScreenProps) {
                       .map((config) => (
                         <Table.Row
                           className={
-                            (jobInfos[config?.latestExec ?? ""]?.report?.data
-                              ?.issues ?? 0) > 0
+                            (config.issuesLatestExec ?? 0) > 0
                               ? "bg-red-100 hover:bg-red-50"
                               : ""
                           }
                           key={config.id}
                         >
                           {tableColumns.map((item) => (
-                            <item.Cell key={item.id} config={config} />
+                            <item.Cell
+                              key={item.id}
+                              config={config}
+                              onModalStateChange={setIsAnyModalOpen}
+                            />
                           ))}
                         </Table.Row>
                       ))}
@@ -498,6 +520,12 @@ export default function JobsScreen({ useACL = false }: JobsScreenProps) {
           </>
         )}
       </div>
+      {/* Poll JobConfigs regularly while JobsScreen is mounted and the current browser tab is active*/}
+      {browserTabActive &&
+        !isAnyModalOpen &&
+        jobStore.jobConfigIds.map((config) => (
+          <JobPoller key={config} jobConfigId={config} />
+        ))}
     </ErrorMessageContext.Provider>
   );
 }

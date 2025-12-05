@@ -1,6 +1,6 @@
 import md5 from "md5";
 
-import { JobConfig, JobReport } from "../types";
+import { JobConfig, JobInfo, JobReport } from "../types";
 
 /**
  * Returns a random number generator that can be seeded with a string.
@@ -45,12 +45,21 @@ export function createGravatar(email?: string, size: number = 200): string {
 /**
  * Formats status-string of JobConfig.
  * @param config job configuration
+ * @param info job information
  * @returns String that describes the job configuration status.
  */
-export function formatJobConfigStatus(config: JobConfig): string {
+export function formatJobConfigStatus(
+  config: JobConfig,
+  info?: JobInfo
+): string {
   if (config.status === "ok") {
-    if (config.schedule?.active) return "Scheduled";
-    else return "Pausiert";
+    if (config.issuesLatestExec && config.issuesLatestExec > 0)
+      return "Fehler beim letzten Joblauf";
+    if (info?.status === "queued" || info?.status === "running")
+      return "wird gerade ausgeführt";
+    if (info?.status === "aborted") return "abgebrochen";
+    if (info?.status === "completed" && config.schedule?.repeat === undefined) return "einmalig ausgeführt";    
+    return "-";
   }
   return "Entwurf";
 }
@@ -134,7 +143,8 @@ type ActionType =
   | "read"
   | "run"
   | "reset"
-  | "download";
+  | "download"
+  | "cancel";
 
 const ACTION_LABELS: Record<ActionType, string> = {
   create: "erstellen",
@@ -144,6 +154,7 @@ const ACTION_LABELS: Record<ActionType, string> = {
   run: "ausführen",
   reset: "zurücksetzen",
   download: "herunterladen",
+  cancel: "abbrechen",
 };
 
 /**
@@ -166,125 +177,134 @@ export function getActionTitle(action: ActionType, context?: string): string {
   return `${context} ${ACTION_LABELS[action]}`;
 }
 
+interface ArtifactDownloadTarget {
+  path: string;
+  asPath: string;
+}
+
 /**
  * Helper function to collect all artifacts for recordId to download from report.
  * @param recordId record identifier
  * @param report report
- * @returns list of paths usable in a request to build a downloadable archive
+ * @returns list of targets usable in a request to build a downloadable archive
  */
 export function getDownloadTargetsFromReport(
   recordId: string,
   report?: JobReport
-): string[] {
-  if (report === undefined) return [];
+): ArtifactDownloadTarget[] {
   const record = report?.data?.records?.[recordId];
   if (record === undefined) return [];
 
-  const targets: (string | undefined)[] = [];
+  const targets: (ArtifactDownloadTarget | undefined)[] = [];
 
   // ie
   targets.push(getImportIEsDownloadTargetFromReport(recordId, report));
 
-  // ip
-  targets.push(getImportIPsDownloadTargetFromReport(recordId, report));
-  targets.push(getBuildIPDownloadTargetFromReport(recordId, report));
-
-  // pip
-  targets.push(getPrepareIPDownloadTargetFromReport(recordId, report));
+  // ip (check from back to front and use first available)
+  // * prepared
+  const preparedIPTarget = getPrepareIPDownloadTargetFromReport(
+    recordId,
+    report
+  );
+  if (preparedIPTarget === undefined) {
+    // * built/imported
+    const builtIPTarget = getBuildIPDownloadTargetFromReport(recordId, report);
+    if (builtIPTarget === undefined) targets.push(builtIPTarget);
+    else targets.push(getImportIPsDownloadTargetFromReport(recordId, report));
+  } else {
+    targets.push(preparedIPTarget);
+  }
 
   // sip
   targets.push(getBuildSIPDownloadTargetFromReport(recordId, report));
 
-  return targets.filter((target) => target !== undefined) as string[]; // eslint does not get the correct type here
+  // return filtered output
+  return targets.filter(
+    (target) => target !== undefined
+  ) as ArtifactDownloadTarget[]; // eslint does not get the correct type here
 }
 
 /**
  * Helper function to collect the import-ies artifact-path for recordId from report.
  * @param recordId record identifier
  * @param report report
- * @returns path usable in a request to build a downloadable archive
+ * @returns target that is usable in a request to build a downloadable archive
  */
 export function getImportIEsDownloadTargetFromReport(
   recordId: string,
   report?: JobReport
-): string | undefined {
-  if (report === undefined) return;
-  const record = report?.data?.records?.[recordId];
-  if (record === undefined) return;
-
-  return (
-    Object.values(
-      report.children[record?.stages?.import_ies?.logId ?? ""]?.data?.IEs ?? {}
-    ) as {
-      sourceIdentifier: string;
-      path: string;
-    }[]
-  ).find((ie) => ie.sourceIdentifier === recordId)?.path;
+): ArtifactDownloadTarget | undefined {
+  if (!report?.data?.records?.[recordId]?.stages?.import_ies?.artifact) return;
+  return {
+    path: report.data.records[recordId].stages.import_ies.artifact!,
+    asPath: "ie",
+  };
 }
 
 /**
  * Helper function to collect the import-ips artifact-path for recordId from report.
  * @param recordId record identifier
  * @param report report
- * @returns path usable in a request to build a downloadable archive
+ * @returns target that is usable in a request to build a downloadable archive
  */
 export function getImportIPsDownloadTargetFromReport(
   recordId: string,
   report?: JobReport
-): string | undefined {
-  const record = report?.data?.records?.[recordId];
-  if (record === undefined) return;
-
-  if (record?.stages?.import_ips) return recordId;
+): ArtifactDownloadTarget | undefined {
+  if (!report?.data?.records?.[recordId]?.stages?.import_ips?.artifact) return;
+  return {
+    path: report.data.records[recordId].stages.import_ips.artifact!,
+    asPath: "ip",
+  };
 }
 
 /**
  * Helper function to collect the build-ip artifact-path for recordId from report.
  * @param recordId record identifier
  * @param report report
- * @returns path usable in a request to build a downloadable archive
+ * @returns target that is usable in a request to build a downloadable archive
  */
 export function getBuildIPDownloadTargetFromReport(
   recordId: string,
   report?: JobReport
-): string | undefined {
-  if (report === undefined) return;
-  const record = report?.data?.records?.[recordId];
-  if (record === undefined) return;
-
-  return report.children[record?.stages?.build_ip?.logId ?? ""]?.data?.path;
+): ArtifactDownloadTarget | undefined {
+  if (!report?.data?.records?.[recordId]?.stages?.build_ip?.artifact) return;
+  return {
+    path: report.data.records[recordId].stages.build_ip.artifact!,
+    asPath: "ip",
+  };
 }
 
 /**
  * Helper function to collect the prepare-ip artifact-path for recordId from report.
  * @param recordId record identifier
  * @param report report
- * @returns path usable in a request to build a downloadable archive
+ * @returns target that is usable in a request to build a downloadable archive
  */
 export function getPrepareIPDownloadTargetFromReport(
   recordId: string,
   report?: JobReport
-): string | undefined {
-  if (report === undefined) return;
-  const record = report?.data?.records?.[recordId];
-  if (record === undefined) return;
-
-  return report.children[record?.stages?.prepare_ip?.logId ?? ""]?.data?.path;
+): ArtifactDownloadTarget | undefined {
+  if (!report?.data?.records?.[recordId]?.stages?.prepare_ip?.artifact) return;
+  return {
+    path: report.data.records[recordId].stages.prepare_ip.artifact!,
+    asPath: "ip",
+  };
 }
 
 /**
  * Helper function to collect the build-sip artifact-path for recordId from report.
  * @param recordId record identifier
  * @param report report
- * @returns path usable in a request to build a downloadable archive
+ * @returns target that is usable in a request to build a downloadable archive
  */
 export function getBuildSIPDownloadTargetFromReport(
   recordId: string,
   report?: JobReport
-): string | undefined {
-  if (report === undefined) return;
-  const record = report?.data?.records?.[recordId];
-  if (record === undefined) return;
-
-  return report.children[record?.stages?.build_sip?.logId ?? ""]?.data?.path;
+): ArtifactDownloadTarget | undefined {
+  if (!report?.data?.records?.[recordId]?.stages?.build_sip?.artifact) return;
+  return {
+    path: report.data.records[recordId].stages.build_sip.artifact!,
+    asPath: "sip",
+  };
 }

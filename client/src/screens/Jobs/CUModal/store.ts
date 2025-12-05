@@ -137,10 +137,7 @@ export const useFormStore = create<FormStore>()((set, get) => ({
           mapping: {
             validate: (strict: boolean) => {
               if (get().template?.type === "hotfolder") return undefined;
-              return validateMapping(
-                strict,
-                get().dataProcessing?.mapping
-              );
+              return validateMapping(strict, get().dataProcessing?.mapping);
             },
           },
           rightsOperations: {
@@ -230,10 +227,7 @@ export const useFormStore = create<FormStore>()((set, get) => ({
     // -------   dataSelection   -------
     switch (template.type) {
       case "hotfolder":
-        store.setDataSelection(
-          { path: config.dataSelection?.path },
-          true
-        );
+        store.setDataSelection({ path: config.dataSelection?.path }, true);
         break;
       case "oai":
         store.setDataSelection(
@@ -274,7 +268,7 @@ export const useFormStore = create<FormStore>()((set, get) => ({
       true
     );
     // -------   schedule   -------
-    if (config.schedule?.active) {
+    if (config.schedule !== undefined) {
       if (config.schedule.start === undefined) {
         console.error("Missing start date. Falling back to no-scheduling.");
         store.setScheduling(
@@ -282,6 +276,7 @@ export const useFormStore = create<FormStore>()((set, get) => ({
             date: undefined,
             time: undefined,
             schedule: undefined,
+            active: undefined,
           },
           true
         );
@@ -292,6 +287,7 @@ export const useFormStore = create<FormStore>()((set, get) => ({
               date: new Date(config.schedule.start),
               time: new Date(config.schedule.start),
               schedule: "onetime",
+              active: config.schedule?.active,
             },
             true
           );
@@ -306,6 +302,7 @@ export const useFormStore = create<FormStore>()((set, get) => ({
               date: new Date(config.schedule.start),
               time: new Date(config.schedule.start),
               schedule: config.schedule.repeat.unit,
+              active: config.schedule?.active,
             },
             true
           );
@@ -375,7 +372,7 @@ export const useFormStore = create<FormStore>()((set, get) => ({
         );
       }
       schedule = {
-        active: true,
+        active: store.scheduling.active ?? true,
         start: formatDateToISOString(
           combineDateAndTime(store.scheduling.date, store.scheduling.time)!
         ),

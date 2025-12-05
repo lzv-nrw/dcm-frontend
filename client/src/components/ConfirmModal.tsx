@@ -9,6 +9,7 @@ interface ConfirmModalProps {
   children?: React.ReactNode;
   confirmText?: string;
   cancelText?: string;
+  dismissible?: boolean;
   onCancel?: () => void;
   onConfirm: () => void;
 }
@@ -18,11 +19,12 @@ export default function ConfirmModal({
   children,
   confirmText = t("Bestätigen"),
   cancelText = t("Abbrechen"),
+  dismissible = false,
   onCancel,
   onConfirm,
 }: ConfirmModalProps) {
   return (
-    <Modal show={show} width="lg" onClose={onCancel}>
+    <Modal show={show} width="lg" onClose={onCancel} dismissible={dismissible}>
       <Modal.Header title={title} hideCloseButton />
       <Modal.Body className="py-4">{children}</Modal.Body>
       <Modal.Footer>

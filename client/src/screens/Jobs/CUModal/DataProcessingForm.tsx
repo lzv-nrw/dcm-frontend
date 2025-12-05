@@ -609,7 +609,7 @@ export function DataProcessingForm({
             >
               <p className="text-xs pb-4">
                 {t(
-                  "Metadaten mithilfe einer manuell erstellten Scriptdatei (Python oder XSLT) mappen"
+                  "Metadaten mithilfe einer manuell erstellten Skriptdatei (Python oder XSLT) mappen."
                 )}
               </p>
               <div className="space-y-2">
@@ -663,7 +663,7 @@ export function DataProcessingForm({
                               color="light"
                               className="font-semibold hover:cursor-pointer hover:bg-gray-50"
                             >
-                              {t("Script hochladen")}
+                              {t("Skript hochladen")}
                             </Button>
                             <FileInput
                               id="dropzone-file"
@@ -683,7 +683,7 @@ export function DataProcessingForm({
                           </div>
                           <div className="flex flex-col items-center justify-center">
                             <p className="text-xs text-gray-500">
-                              {t("Skripte müssen in UTF-8 codiert sein")}
+                              {t("Skripte müssen in UTF-8 codiert sein.")}
                             </p>
                           </div>
                         </>

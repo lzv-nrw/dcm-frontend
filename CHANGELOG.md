@@ -1,5 +1,41 @@
 # Changelog
 
+## [1.0.0] - 2025-12-05
+
+### Changed
+
+- updated status-column in jobs screen
+- improved report-formatting when downloading via IE-table/Job Details screen
+- updated `RIGHTS_FIELDS_CONFIGURATION`
+
+### Added
+
+- added support for batched job processing in `MonitorJobModal`
+- added column to show Preservation Level in `JobDetailsScreen`
+- added import-section in `MonitorJobModal`
+- added stop icon button when job is running
+- added schedule toggle in `JobsScreen`
+
+### Fixed
+
+- fixed title output in `MonitorJobModal`
+- fixed logic of marking a job in `JobScreen` if an issue exists
+- fixed setting the scheduler for jobs with OAI templates and a selected data space
+- fixed status filter in `JobScreen`
+- fixed behavior of start/stop button in `JobsScreen`, make confirm modal dismissible
+- fixed issues-column in `JobScreen`
+- fixed record-count indicator in `MonitorJobModal`
+- allow partial fetching of `JobInfo` using the keys parameter
+- fixed scheduler behavior in the Jobs Wizard when editing a job
+- fixed column title for processed IEs in `JobScreen`
+- jobs now poll automatically on `JobScreen` without overlapping requests
+- fixed overlay of popover element
+- fixed artifact download
+    - added missing import-artifacts
+    - fixed setting of proper paths inside archive-files
+    - only include latest version of an IP
+    - updated default download name on Job Details screen
+
 ## [0.39.0] - 2025-11-04
 
 ### Changed

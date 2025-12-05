@@ -1,7 +1,7 @@
-import { useContext, useState } from "react";
+import { useContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { Table, Button, Spinner } from "flowbite-react";
-import { FiPlay, FiEye, FiMoreVertical } from "react-icons/fi";
+import { Table, Button, Spinner, ToggleSwitch } from "flowbite-react";
+import { FiPlay, FiEye, FiMoreVertical, FiSquare } from "react-icons/fi";
 
 import t from "../../utils/translation";
 import { formatJobConfigStatus, getActionTitle } from "../../utils/util";
@@ -18,6 +18,84 @@ import { ErrorMessageContext } from "./JobsScreen";
 
 export interface TableCellProps {
   config?: JobConfig;
+  onModalStateChange?: (show: boolean) => void;
+}
+
+export function SchedulerStateCell({ config }: TableCellProps) {
+  const errorHandler = useContext(ErrorMessageContext);
+  const [activeScheduler, setActiveScheduler] = useState(false);
+  const latestReport = useGlobalStore(
+    (state) => state.job.jobInfos[config?.latestExec ?? ""]
+  );
+  const fetchJobConfig = useGlobalStore((state) => state.job.fetchJobConfig);
+
+  useEffect(() => {
+    if (config?.schedule?.active !== undefined)
+      setActiveScheduler(config.schedule.active);
+  }, [config?.schedule?.active]);
+
+  function handleToggleState(checked: boolean) {
+    setActiveScheduler(checked);
+    fetch(host + "/api/curator/job-config", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: credentialsValue,
+      body: JSON.stringify({
+        ...config,
+        schedule: {
+          ...config?.schedule,
+          active: checked,
+        },
+      }),
+    })
+      .then((response) => {
+        if (!response.ok) {
+          response.text().then((text) =>
+            errorHandler?.pushMessage({
+              id: "failed-submit-not-ok",
+              text: `${t(
+                `Absenden der Konfiguration nicht erfolgreich`
+              )}: ${text}`,
+            })
+          );
+          return;
+        }
+        if (config?.id) {
+          fetchJobConfig({
+            jobConfigId: config.id,
+            onFail: (error) =>
+              errorHandler?.pushMessage({
+                id: `fetch-job-config-${config.id}`,
+                text: error,
+              }),
+          });
+        }
+      })
+      .catch((error) => {
+        console.error(error);
+        errorHandler?.pushMessage({
+          id: "failed-submit-error",
+          text: `${t(`Fehler beim Absenden der Konfiguration`)}: ${
+            error.message
+          }`,
+        });
+      });
+  }
+
+  if (!config) return <Table.HeadCell>{t("Zeitplan")}</Table.HeadCell>;
+  if (!config.schedule?.start || config.status === "draft")
+    return <Table.Cell></Table.Cell>;
+  return (
+    <Table.Cell>
+      <ToggleSwitch
+        disabled={["queued", "running"].includes(latestReport?.status ?? "")}
+        checked={activeScheduler}
+        onChange={handleToggleState}
+      />
+    </Table.Cell>
+  );
 }
 
 export function NameCell({ config }: TableCellProps) {
@@ -100,25 +178,27 @@ export function ScheduleCell({ config }: TableCellProps) {
 }
 
 export function StatusCell({ config }: TableCellProps) {
-  if (!config) return <Table.HeadCell>{t("Status")}</Table.HeadCell>;
-  return <Table.Cell>{t(formatJobConfigStatus(config))}</Table.Cell>;
-}
-
-export function ArchivedIEsCell({ config }: TableCellProps) {
-  if (!config) return <Table.HeadCell>{t("Archivierte IEs")}</Table.HeadCell>;
-  return <Table.Cell>{config.IEs ?? 0}</Table.Cell>;
-}
-
-export function IssuesCell({ config }: TableCellProps) {
   const latestReport = useGlobalStore(
     (state) => state.job.jobInfos[config?.latestExec ?? ""]
   );
 
-  if (!config) return <Table.HeadCell>{t("Issues")}</Table.HeadCell>;
-  return <Table.Cell>{latestReport?.report?.data?.issues ?? 0}</Table.Cell>;
+  if (!config) return <Table.HeadCell>{t("Status")}</Table.HeadCell>;
+  return (
+    <Table.Cell>{t(formatJobConfigStatus(config, latestReport))}</Table.Cell>
+  );
 }
 
-export function ActionsCell({ config }: TableCellProps) {
+export function ProcessedIEsCell({ config }: TableCellProps) {
+  if (!config) return <Table.HeadCell>{t("Verarbeitete IEs")}</Table.HeadCell>;
+  return <Table.Cell>{config.IEs ?? 0}</Table.Cell>;
+}
+
+export function IssuesCell({ config }: TableCellProps) {
+  if (!config) return <Table.HeadCell>{t("Issues")}</Table.HeadCell>;
+  return <Table.Cell>{config.issues ?? 0}</Table.Cell>;
+}
+
+export function ActionsCell({ config, onModalStateChange }: TableCellProps) {
   const acl = useGlobalStore((state) => state.session.acl);
   const workspaces = useGlobalStore((state) => state.workspace.workspaces);
   const templates = useGlobalStore((state) => state.template.templates);
@@ -141,6 +221,11 @@ export function ActionsCell({ config }: TableCellProps) {
   // devMode-Modal for tracking job progress
   const [token, setToken] = useState<string | null>(null);
   const [showMonitorJobModal, setShowMonitorJobModal] = useState(false);
+
+  useEffect(() => {
+    onModalStateChange?.(showCUModal || showMonitorJobModal);
+    // eslint-disable-next-line
+  }, [showCUModal, showMonitorJobModal]);
 
   function submitJob() {
     if (!config) return;
@@ -269,7 +354,16 @@ export function ActionsCell({ config }: TableCellProps) {
             !(acl?.CREATE_JOB && config.status !== "draft") ? "invisible" : ""
           }`}
           size="xs"
-          title={t(getActionTitle("run", "Job"))}
+          title={t(
+            getActionTitle(
+              ["queued", "running"].includes(
+                jobInfos[config?.latestExec ?? ""]?.status ?? ""
+              )
+                ? "cancel"
+                : "run",
+              "Job"
+            )
+          )}
           disabled={loadingJobExecution || loadingDelete}
           onClick={() => {
             // fetch config to get current latestExec
@@ -304,12 +398,20 @@ export function ActionsCell({ config }: TableCellProps) {
             });
           }}
         >
-          {loadingJobExecution ? <Spinner size="sm" /> : <FiPlay size={20} />}
+          {["queued", "running"].includes(
+            jobInfos[config?.latestExec ?? ""]?.status ?? ""
+          ) ? (
+            <FiSquare size={20} />
+          ) : (
+            <FiPlay size={20} />
+          )}
         </Button>
         {acl?.CREATE_JOB && config.status !== "draft" ? (
           <ConfirmModal
             show={showConfirmWatchModal}
-            title={t("Job verfolgen")}
+            title={t("Aktion bestätigen")}
+            confirmText={t("Job verfolgen")}
+            dismissible
             onConfirm={() => {
               setShowConfirmWatchModal(false);
               if (config.latestExec) {
@@ -317,13 +419,47 @@ export function ActionsCell({ config }: TableCellProps) {
                 setShowMonitorJobModal(true);
               }
             }}
+            cancelText={t("Job abbrechen")}
             onCancel={() => {
+              setLoadingJobExecution(true);
               setShowConfirmWatchModal(false);
+              if (config.latestExec) {
+                fetch(host + "/api/curator/job", {
+                  method: "DELETE",
+                  credentials: credentialsValue,
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({ token: config.latestExec }),
+                })
+                  .then(async (response) => {
+                    setLoadingJobExecution(false);
+
+                    if (!response.ok) {
+                      throw new Error(await response.text());
+                    }
+                    fetchJobInfo({
+                      // Non-null assertion: latestExec is guaranteed to be defined here
+                      token: config.latestExec!,
+                      useACL: true,
+                      forceReload: true,
+                    });
+                  })
+                  .catch((error) => {
+                    setLoadingJobExecution(false);
+                    errorHandler?.pushMessage({
+                      id: `abort-job`,
+                      text: `${t("Fehler beim Abbrechen eines Jobs (<id>)")}: ${
+                        error.message
+                      }`,
+                    });
+                  });
+              }
             }}
           >
             <span>
               {t(
-                "Es läuft bereits ein Job mit dieser Konfiguration. Möchten Sie diesen Job verfolgen?"
+                "Es läuft aktuell ein Job. Möchten Sie diesen Job verfolgen oder abbrechen?"
               )}
             </span>
           </ConfirmModal>

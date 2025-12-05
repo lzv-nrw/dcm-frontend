@@ -205,9 +205,14 @@ class JobView(services.View):
         @requires_permission(*self.config.ACL.READ_JOB)
         @generate_workspaces(*self.config.ACL.READ_JOB)
         def get_job_info(workspaces: Optional[Iterable[str]]):
+            request_keys = request.args.get("keys")
+            # add 'workspaceId', if not included in request
+            # required to enforce the workspace-rules
+            if request_keys and "workspaceId" not in request_keys:
+                request_keys += ",workspaceId"
             response = call_backend(
                 endpoint=(self.backend_job_api.get_job_info_with_http_info),
-                args=(request.args.get("token"),),
+                args=(request.args.get("token"), request_keys),
                 request_timeout=self.config.BACKEND_TIMEOUT,
             )
 

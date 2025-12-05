@@ -378,12 +378,6 @@ export function SummaryForm({ name }: FormSectionComponentProps) {
                                   }
                                   size="xs"
                                   onClick={() => {
-                                    const targets =
-                                      getDownloadTargetsFromReport(
-                                        recordId,
-                                        jobInfos[testJobToken]?.report
-                                      );
-
                                     // send request
                                     setBundleJobRunning(true);
                                     setBundleJobRecordId(recordId);
@@ -398,9 +392,11 @@ export function SummaryForm({ name }: FormSectionComponentProps) {
                                         },
                                         body: JSON.stringify({
                                           bundle: {
-                                            targets: targets.map((target) => ({
-                                              path: target,
-                                            })),
+                                            targets:
+                                              getDownloadTargetsFromReport(
+                                                recordId,
+                                                jobInfos[testJobToken]?.report
+                                              ),
                                           },
                                         }),
                                       }

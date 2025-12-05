@@ -11,6 +11,7 @@ import DownloadReportsModal from "./DownloadReportsModal";
 
 export interface TableCellProps {
   ie?: IE;
+  index?: number;
 }
 
 export function SourceSystemIdCell({ ie }: TableCellProps) {
@@ -54,6 +55,20 @@ export function ProcessedDatetimeCell({ ie }: TableCellProps) {
   );
 }
 
+export function PreservationLevelCell({ ie }: TableCellProps) {
+  if (!ie)
+    return (
+      <Table.HeadCell className="max-w-44">
+        {t("Preservation Level")}
+      </Table.HeadCell>
+    );
+  return (
+    <Table.Cell>
+      {ie?.bagInfoMetadata?.["Preservation Level"]?.[0] ?? "-"}
+    </Table.Cell>
+  );
+}
+
 export function StatusCell({ ie }: TableCellProps) {
   if (!ie)
     return <Table.HeadCell className="max-w-44">{t("Status")}</Table.HeadCell>;
@@ -61,8 +76,8 @@ export function StatusCell({ ie }: TableCellProps) {
   const record = ie.records?.[ie.latestRecordId ?? ""];
   return (
     <Table.Cell className="max-w-44">
-      <div className="flex flex-col gap-1 h-0 items-start justify-center">
-        <span className="text-nowrap">{t(formatRecordStatus(record))}</span>
+      <div className="flex flex-col gap-1 items-start justify-center">
+        <span>{t(formatRecordStatus(record))}</span>
         {record?.ignored && (
           <Badge
             className="hover:cursor-help select-none w-fit text-nowrap"
@@ -117,7 +132,7 @@ export function TokenCell({ ie }: TableCellProps) {
   );
 }
 
-export function DownloadCell({ ie }: TableCellProps) {
+export function DownloadCell({ ie, index }: TableCellProps) {
   const [showDownloadArtifactModal, setShowDownloadArtifactModal] =
     useState(false);
   const [showDownloadReportModal, setShowDownloadReportModal] = useState(false);
@@ -152,6 +167,9 @@ export function DownloadCell({ ie }: TableCellProps) {
             <DownloadArtifactsModal
               show={showDownloadArtifactModal}
               record={ie.records?.[ie.latestRecordId ?? ""]}
+              downloadName={
+                index === undefined ? undefined : `dcm-artifact-${index}.zip`
+              }
               onClose={() => setShowDownloadArtifactModal(false)}
             />
           </>

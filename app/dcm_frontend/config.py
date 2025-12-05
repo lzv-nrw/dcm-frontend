@@ -112,6 +112,24 @@ class AppConfig(BaseConfig):
             "type": "select",
             "options": [
                 {
+                    "value": "Public Domain",
+                    "label": "Public Domain",
+                },
+                {
+                    "value": "Copyrighted",
+                    "label": "Copyrighted",
+                },
+                {
+                    "value": "Unknown",
+                    "label": "Unknown",
+                },
+            ],
+        },
+        "DC-Terms-Rights": {
+            "label": "DC-Terms-Rights",
+            "type": "select",
+            "options": [
+                {
                     "value": "http://rightsstatements.org/vocab/InC/1.0/",
                     "label": "Urheberrechtsschutz",
                 },
@@ -158,24 +176,6 @@ class AppConfig(BaseConfig):
                 {
                     "value": "http://rightsstatements.org/vocab/UND/1.0/",
                     "label": "Urheberrechtsschutz ungewiss",
-                },
-            ],
-        },
-        "DC-Terms-Rights": {
-            "label": "DC-Terms-Rights",
-            "type": "select",
-            "options": [
-                {
-                    "value": "Public Domain",
-                    "label": "Public Domain",
-                },
-                {
-                    "value": "Copyrighted",
-                    "label": "Copyrighted",
-                },
-                {
-                    "value": "Unknown",
-                    "label": "Unknown",
                 },
             ],
         },

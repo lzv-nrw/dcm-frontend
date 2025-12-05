@@ -173,6 +173,9 @@ def _backend_config(backend_hotfolder, backend_archives, temp_folder):
         DB_LOAD_SCHEMA = True
         DB_GENERATE_DEMO = True
         DB_DEMO_ADMIN_PW = "admin"
+        DB_DEMO_EINSTEIN_PW = "relativity"
+        DB_DEMO_CURIE_PW = "radioactivity"
+        DB_DEMO_FEYNMAN_PW = "superfluidity"
         ORCHESTRA_AT_STARTUP = False
         SCHEDULING_AT_STARTUP = False
 

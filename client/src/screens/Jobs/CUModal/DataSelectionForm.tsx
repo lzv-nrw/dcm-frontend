@@ -201,7 +201,6 @@ export function OaiDataSelectionForm({
     useShallow((state) => [state.dataSelection, state.setDataSelection])
   );
   const template = useFormStore((state) => state.template);
-  const scheduling = useFormStore((state) => state.scheduling);
   const [validator, setCurrentValidationReport] = useFormStore(
     useShallow((state) => [state.validator, state.setCurrentValidationReport])
   );
@@ -266,11 +265,7 @@ export function OaiDataSelectionForm({
             <Datepicker
               className="flex flex-row w-48"
               date={(dataSelection as OaiDataSelection)?.from ?? null}
-              disabled={
-                useUntil ||
-                filterType === "identifiers" ||
-                ![undefined, "onetime"].includes(scheduling?.schedule)
-              }
+              disabled={useUntil || filterType === "identifiers"}
               onChange={(date) => setDataSelection({ from: date ?? undefined })}
             />
           </div>

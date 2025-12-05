@@ -78,17 +78,13 @@ export default function CustomNavbar() {
         <ContextMenu
           open={openContextMenu}
           onOpenChange={setOpenContextMenu}
+          header={
+            <>
+              <div>{`${me?.firstname ?? ""} ${me?.lastname ?? ""}`}</div>
+              <div>{me?.username ?? ""}</div>
+            </>
+          }
           items={[
-            {
-              children: (
-                <>
-                  <div className="font-semibold">
-                    {`${me?.firstname ?? ""} ${me?.lastname ?? ""}`}
-                  </div>
-                  <div>{me?.username ?? ""}</div>
-                </>
-              ),
-            },
             {
               children: t("Passwort ändern"),
               onClick: () => navigate("/password-update"),

@@ -1,5 +1,5 @@
 import { useEffect, useState, createContext, useContext } from "react";
-import { Card, Popover, Select, Spinner } from "flowbite-react";
+import { Card, Select, Spinner } from "flowbite-react";
 import { FiMoreHorizontal, FiTrash2 } from "react-icons/fi";
 
 import t from "../../utils/translation";
@@ -278,47 +278,30 @@ export default function WorkspaceDisplay({
           <div className="px-3 h-8 flex justify-between items-center">
             <h5 className="font-semibold">{t("Templates")}</h5>
             {(useACL && !acl?.MODIFY_TEMPLATE) || (
-              <Popover
+              <ContextMenu
                 open={openAddTemplate}
                 onOpenChange={setOpenAddTemplate}
-                placement="top"
-                content={
-                  <div className="w-80 bg-white select-none">
-                    <h3
-                      id="default-popover"
-                      className="font-semibold bg-gray-100 px-2 py-3"
-                    >
-                      {t("Template hinzufügen")}
-                    </h3>
-                    {unassignedTemplates.map((template) => (
-                      <div
-                        key={template.id}
-                        className="hover:bg-gray-100 hover:cursor-pointer dcm-clamp-text"
-                      >
-                        <TemplateDisplay
-                          template={template}
-                          onClick={() => {
-                            setOpenAddTemplate(false);
-                            if (
-                              loading ||
-                              template.id === undefined ||
-                              workspace.templates?.includes(template.id)
-                            )
-                              return;
-                            setLoading(true);
-                            putTemplate({
-                              ...template,
-                              workspaceId: workspace.id,
-                            });
-                          }}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                }
-                onClick={(e) => {
-                  e.stopPropagation();
-                }}
+                className="w-80 max-h-96 overflow-y-auto absolute right-0 rounded-lg border border-gray-200 bg-white shadow-sm outline-none"
+                placement="bottom-end"
+                header={t("Template hinzufügen")}
+                items={unassignedTemplates.map((template) => ({
+                  key: template.id,
+                  children: <TemplateDisplay template={template} />,
+                  onClick: () => {
+                    setOpenAddTemplate(false);
+                    if (
+                      loading ||
+                      template.id === undefined ||
+                      workspace.templates?.includes(template.id)
+                    )
+                      return;
+                    setLoading(true);
+                    putTemplate({
+                      ...template,
+                      workspaceId: workspace.id,
+                    });
+                  },
+                }))}
               >
                 <div>
                   <Card
@@ -338,7 +321,7 @@ export default function WorkspaceDisplay({
                     </span>
                   </Card>
                 </div>
-              </Popover>
+              </ContextMenu>
             )}
           </div>
           <div className="p-2 my-2 grid grid-cols-2 gap-4 overflow-y-auto max-h-72">

@@ -12,6 +12,7 @@ import Modal from "../../components/Modal";
 interface DownloadArtifactsModalProps {
   show: boolean;
   record: RecordInfo;
+  downloadName?: string;
   onClose?: () => void;
 }
 
@@ -19,6 +20,7 @@ export default function DownloadArtifactsModal({
   show,
   onClose,
   record,
+  downloadName,
 }: DownloadArtifactsModalProps) {
   const fetchJobInfo = useGlobalStore((state) => state.job.fetchJobInfo);
   const [bundleJobRunning, setBundleJobRunning] = useState(false);
@@ -52,11 +54,7 @@ export default function DownloadArtifactsModal({
           },
           body: JSON.stringify({
             bundle: {
-              targets: getDownloadTargetsFromReport(record.id, info.report).map(
-                (target) => ({
-                  path: target,
-                })
-              ),
+              targets: getDownloadTargetsFromReport(record.id, info.report),
             },
           }),
         })
@@ -176,6 +174,7 @@ export default function DownloadArtifactsModal({
                       "/api/curator/job/artifacts/bundle?" +
                       new URLSearchParams({
                         id: downloadId,
+                        ...(downloadName ? { downloadName } : {}),
                       }).toString(),
                     "_blank"
                   );

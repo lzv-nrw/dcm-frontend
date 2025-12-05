@@ -157,6 +157,8 @@ export interface JobConfig {
   userModified?: string;
   datetimeModified?: string;
   IEs?: number;
+  issues?: number;
+  issuesLatestExec?: number;
 }
 
 export type RecordStatus =
@@ -199,6 +201,7 @@ export interface IE {
   archiveId: string;
   latestRecordId?: string;
   records?: Record<string, RecordInfo>;
+  bagInfoMetadata: Record<string, string[]>;
 }
 
 export interface StageInfo {
@@ -209,10 +212,22 @@ export interface StageInfo {
   artifact?: string;
 }
 
+export interface ChildReport {
+  [key: string]: any;
+  log: {
+    [key: string]: {
+      body: string;
+      datetime: string;
+      origin: string;
+    }[];
+  };
+}
+
 export interface JobReport {
   [key: string]: any;
   data: {
     success?: boolean;
+    finalBatch: boolean;
     issues: number;
     records: Record<
       string,
@@ -228,16 +243,7 @@ export interface JobReport {
     >;
   };
   children: {
-    [key: string]: {
-      [key: string]: any;
-      log: {
-        [key: string]: {
-          body: string;
-          datetime: string;
-          origin: string;
-        }[];
-      };
-    };
+    [key: string]: ChildReport;
   };
   log: {
     [key: string]: {
@@ -261,4 +267,8 @@ export interface JobInfo {
   report?: JobReport;
   templateId?: string;
   workspaceId?: string;
+  collection?: {
+    completed: boolean;
+    tokens: string[];
+  };
 }

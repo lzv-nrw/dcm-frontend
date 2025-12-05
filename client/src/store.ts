@@ -126,11 +126,12 @@ export interface JobStore {
     replace?: boolean;
   }) => void;
   jobInfos: Record<string, JobInfo>;
-  fetchJobInfo: (p: {
+  fetchJobInfo: <K extends keyof JobInfo = keyof JobInfo>(p: {
     token: string;
+    keys?: K[];
     useACL?: boolean;
     forceReload?: boolean;
-    onSuccess?: (jobInfo: JobInfo) => void;
+    onSuccess?: (jobInfo: Pick<JobInfo, K>) => void;
     onFail?: (error: string) => void;
   }) => void;
   fetchIE: (p: {
@@ -478,31 +479,53 @@ const useGlobalStore = create<GlobalStore>()((set, get) => ({
       );
     },
     jobInfos: {},
-    fetchJobInfo: ({ token, useACL, forceReload, onSuccess, onFail }) => {
+    fetchJobInfo: <K extends keyof JobInfo>({
+      token,
+      keys,
+      useACL,
+      forceReload,
+      onSuccess,
+      onFail,
+    }: {
+      token: string;
+      keys?: K[];
+      useACL?: boolean;
+      forceReload?: boolean;
+      onSuccess?: (jobInfo: Pick<JobInfo, K>) => void;
+      onFail?: (error: string) => void;
+    }) => {
       if (useACL && !get().session.acl?.READ_JOB) return;
       if (!forceReload && get().job.jobInfos[token]) {
         onSuccess?.(get().job.jobInfos[token]);
         return;
       }
+
+      // ---- REQUEST ----
+      const params = new URLSearchParams({ token });
+      if (keys?.length && keys?.length > 0) {
+        params.set("keys", keys.join(","));
+      }
       defaultJSONFetch(
-        "/api/curator/job/info?" + new URLSearchParams({ token }).toString(),
+        "/api/curator/job/info?" + params.toString(),
         t("Job") + ` '${token}'`,
-        (json) =>
-          set((state) => ({
-            job: {
-              ...state.job,
-              jobInfos: { ...state.job.jobInfos, [token]: json },
-            },
-          })),
+        (json: Partial<JobInfo>) => {
+          set((state) => {
+            return {
+              job: {
+                ...state.job,
+                jobInfos: {
+                  ...state.job.jobInfos,
+                  [token]: { ...(state.job.jobInfos[token] ?? {}), ...json },
+                },
+              },
+            };
+          });
+        },
         onSuccess,
         onFail
       );
     },
-    fetchIE: ({
-      id,
-      onSuccess,
-      onFail,
-    }) =>
+    fetchIE: ({ id, onSuccess, onFail }) =>
       defaultJSONFetch(
         "/api/curator/job/ie?" +
           new URLSearchParams({

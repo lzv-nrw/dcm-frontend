@@ -12,6 +12,7 @@ import {
   TimelineBody,
   List,
   Spinner,
+  Pagination,
 } from "flowbite-react";
 import {
   FiCheckCircle,
@@ -27,6 +28,7 @@ import {
 
 import t from "../../utils/translation";
 import { getTextInputColor } from "../../utils/forms";
+import { ChildReport } from "../../types";
 import useGlobalStore from "../../store";
 import { credentialsValue, devMode, host } from "../../App";
 import Modal from "../../components/Modal";
@@ -50,6 +52,8 @@ export const StageOrder = [
  */
 export function getStageTitle(stage: string): string {
   switch (stage) {
+    case "import":
+      return t("Importiere Records");
     case "import_ies":
       return t("Importiere IEs");
     case "build_ip":
@@ -129,6 +133,38 @@ function SidebarItem({
   );
 }
 
+const reportMessages = [
+  { message: "INFO", color: "" },
+  { message: "WARNING", color: "text-yellow-500" },
+  { message: "ERROR", color: "text-red-600" },
+];
+
+/**
+ * Helper-component that renders info, warning, and error-messages from
+ * a given report.
+ */
+function Log({ report }: { report?: ChildReport }) {
+  return (
+    <>
+      {reportMessages.map(({ message, color }) => (
+        <TimelineBody key={message}>
+          <List>
+            {(report?.log?.[message] || []).map((msg, index) => (
+              <List.Item
+                key={msg.datetime + `-${message.toLowerCase()}` + index}
+                className={color}
+              >
+                <span className="font-semibold mr-2">{msg.origin}</span>
+                {msg.body}
+              </List.Item>
+            ))}
+          </List>
+        </TimelineBody>
+      ))}
+    </>
+  );
+}
+
 /**
  * Helper to handle data that is either a string or an array.
  * @param valueOrArray string or array of strings
@@ -160,6 +196,10 @@ export default function MonitorJobModal({
   const [jobInfos, fetchJobInfo] = useGlobalStore(
     useShallow((state) => [state.job.jobInfos, state.job.fetchJobInfo])
   );
+  const [importChildId, setImportChildId] = useState<string | undefined>(
+    undefined
+  );
+  const [importChildIsSelected, setImportChildIsSelected] = useState(false);
   const [selectedRecordId, setSelectedRecordId] = useState<string | undefined>(
     undefined
   );
@@ -187,10 +227,12 @@ export default function MonitorJobModal({
     if (!reportDetailsContainerRef.current) return;
     if (!autoScroll) return;
     if (
-      (selectedRecordId === undefined &&
-        jobInfos[token].status !== "running") ||
-      (selectedRecordId !== undefined &&
-        jobInfos[token].report?.data.records?.[selectedRecordId]?.completed)
+      selectedRecordId === undefined
+        ? (!importChildIsSelected && jobInfos[token].status !== "running") ||
+          (importChildIsSelected &&
+            jobInfos[token].report?.children?.[importChildId ?? ""]?.progress
+              ?.status !== "running")
+        : jobInfos[token].report?.data.records?.[selectedRecordId]?.completed
     )
       return;
     reportDetailsContainerRef.current?.scrollTo(
@@ -202,18 +244,37 @@ export default function MonitorJobModal({
 
   const [loadingAbort, setLoadingAbort] = useState(false);
 
+  // identify child-report for import
+  useEffect(() => {
+    setImportChildId(undefined);
+  }, [initialToken, token, setImportChildId]);
+  useEffect(() => {
+    if (importChildId) return;
+    const child = Object.entries(jobInfos[token]?.report?.children ?? {}).find(
+      ([childId]) =>
+        childId.endsWith("import_ies") || childId.endsWith("import_ips")
+    );
+    if (!child) return;
+    setImportChildId(child[0]);
+    // eslint-disable-next-line
+  }, [jobInfos[token], setImportChildId]);
+
   // disable initial 404-error-message for jobs that have not been started yet
   useEffect(() => {
     setShowNotFoundError(token !== initialToken);
   }, [initialToken, token]);
 
   // fetching job info
-  function fetchThisJobInfo(onFail?: (error: string) => void) {
+  function fetchThisJobInfo(
+    onFail?: (error: string) => void,
+    onSuccess?: () => void
+  ) {
     fetchJobInfo({
       token,
       useACL: true,
       forceReload: true,
       onSuccess: () => {
+        onSuccess?.();
         errorMessageHandler.removeMessage("fetch-job-info-failed");
         errorMessageHandler.removeMessage("fetch-job-info-error");
       },
@@ -236,13 +297,26 @@ export default function MonitorJobModal({
   useEffect(() => {
     if (!show || !token || token?.length !== 36) return;
     let errorCounter = 0;
+    let fetchRunning = false;
     const interval = setInterval(() => {
-      if (["aborted", "completed"].includes(jobInfos[token]?.status ?? "")) {
+      if (fetchRunning) return;
+      if (
+        ["aborted", "completed"].includes(jobInfos[token]?.status ?? "") &&
+        (jobInfos[token]?.collection?.completed ?? true)
+      ) {
         clearInterval(interval);
-      } else
-        fetchThisJobInfo(() => {
-          errorCounter++;
-        });
+      } else {
+        fetchRunning = true;
+        fetchThisJobInfo(
+          () => {
+            fetchRunning = false;
+            errorCounter++;
+          },
+          () => {
+            fetchRunning = false;
+          }
+        );
+      }
 
       if (errorCounter >= MAX_ERRORS_BEFORE_STOP) {
         setFetchFailedAndHasBeenStopped(true);
@@ -259,6 +333,18 @@ export default function MonitorJobModal({
     return () => clearInterval(interval);
     // eslint-disable-next-line
   }, [show, token, jobInfos]);
+  // * jump to latest in collection
+  useEffect(() => {
+    if (
+      !autoScroll ||
+      jobInfos[token]?.collection?.completed ||
+      token !== jobInfos[token]?.collection?.tokens.at(-2)
+    )
+      return;
+
+    setToken((state) => jobInfos[state]?.collection?.tokens.at(-1) ?? state);
+    // eslint-disable-next-line
+  }, [jobInfos[token]?.collection?.tokens.at(-1)]);
 
   function getTimelinePointTheme(ok?: boolean): any {
     let tc, bgc;
@@ -301,21 +387,74 @@ export default function MonitorJobModal({
               onDismiss={errorMessageHandler.clearMessages}
             />
           ) : null}
-          {devMode && (
-            <>
-              <h3 className="font-semibold">{t("Token")}</h3>
-              <TextInput
-                className="w-80"
-                id="token"
-                value={token}
-                placeholder="Job Token"
-                color={getTextInputColor({
-                  ok: token === "" ? null : token.length === 36,
-                })}
-                onChange={(e) => setToken(e.target.value)}
-              />
-            </>
-          )}
+          <div className="flex flex-row space-x-4">
+            {devMode && (
+              <div className="flex flex-col space-y-2">
+                <h3 className="font-semibold">{t("Token")}</h3>
+                <TextInput
+                  theme={{
+                    field: {
+                      input: {
+                        base: "h-10 block w-full border focus:outline-none focus:ring-1 disabled:cursor-not-allowed disabled:opacity-50",
+                      },
+                    },
+                  }}
+                  className="w-80"
+                  id="token"
+                  value={token}
+                  placeholder="Job Token"
+                  color={getTextInputColor({
+                    ok: token === "" ? null : token.length === 36,
+                  })}
+                  onChange={(e) => setToken(e.target.value)}
+                />
+              </div>
+            )}
+            {token &&
+              (jobInfos[token]?.collection?.tokens?.length ?? 0) > 1 && (
+                <div className="flex flex-col space-y-2 grow">
+                  <h3 className="font-semibold">
+                    {t("Stapelverarbeitung: Stapel wählen")}
+                  </h3>
+                  <Pagination
+                    currentPage={
+                      (jobInfos[token ?? ""].collection?.tokens.indexOf(
+                        token
+                      ) ?? 0) + 1
+                    }
+                    totalPages={
+                      jobInfos[token ?? ""].collection?.tokens?.length ?? 0
+                    }
+                    previousLabel=""
+                    nextLabel=""
+                    layout="pagination"
+                    showIcons
+                    onPageChange={(page) => {
+                      setToken(
+                        (state) =>
+                          jobInfos[state].collection?.tokens[page - 1] ?? state
+                      );
+                    }}
+                    theme={{
+                      pages: {
+                        base: "mt-0 inline-flex items-center -space-x-px",
+                        previous: {
+                          base: "h-10 ml-0 rounded-l-lg border border-gray-300 bg-white px-3 py-2 leading-tight text-gray-500 enabled:hover:bg-gray-100 enabled:hover:text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 enabled:dark:hover:bg-gray-700 enabled:dark:hover:text-white",
+                          icon: "h-6 w-5",
+                        },
+                        next: {
+                          base: "h-10 rounded-r-lg border border-gray-300 bg-white px-3 py-2 leading-tight text-gray-500 enabled:hover:bg-gray-100 enabled:hover:text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 enabled:dark:hover:bg-gray-700 enabled:dark:hover:text-white",
+                          icon: "h-6 w-5",
+                        },
+                        selector: {
+                          base: "h-10 w-12 border border-gray-300 bg-white py-2 leading-tight text-gray-500 enabled:hover:bg-gray-100 enabled:hover:text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 enabled:dark:hover:bg-gray-700 enabled:dark:hover:text-white",
+                        },
+                      },
+                    }}
+                  />
+                </div>
+              )}
+          </div>
           {
             // heuristically determine whether spinner should be displayed
             token !== "" &&
@@ -336,7 +475,19 @@ export default function MonitorJobModal({
               <div className="flex flex-row gap-4">
                 <div className="flex flex-col flex-grow space-y-2">
                   <div className="px-4 py-2 rounded-lg shadow-md border border-gray-200">
-                    <h5 className="font-semibold">{t("Ausführung")}</h5>
+                    <h5 className="font-semibold">
+                      {t(
+                        `Ausführung${
+                          jobInfos[token ?? ""]?.collection ||
+                          !(
+                            jobInfos[token ?? ""]?.report?.data?.finalBatch ??
+                            true
+                          )
+                            ? " (Stapelverarbeitung)"
+                            : ""
+                        }`
+                      )}
+                    </h5>
                     <div className="space-x-2">
                       <span>
                         {t("Status")}:{" "}
@@ -384,9 +535,17 @@ export default function MonitorJobModal({
                           ).length
                         }
                       </span>
-                      {["queued", "running"].includes(
-                        jobInfos[token].status ?? ""
-                      ) && <Spinner className="mb-1" size="xs" />}
+                      {
+                        // show spinner if job is running and import-stage is not completed
+                        ["queued", "running"].includes(
+                          jobInfos[token].status ?? ""
+                        ) &&
+                          ["queued", "running"].includes(
+                            jobInfos[token].report?.children?.[
+                              importChildId ?? ""
+                            ]?.progress?.status ?? "queued"
+                          ) && <Spinner className="mb-1" size="xs" />
+                      }
                     </div>
                   </div>
                 </div>
@@ -450,10 +609,43 @@ export default function MonitorJobModal({
                         return "success";
                       return "failure";
                     })()}
-                    active={selectedRecordId === undefined}
+                    active={
+                      selectedRecordId === undefined && !importChildIsSelected
+                    }
                     text={t("Job")}
-                    onClick={() => setSelectedRecordId(undefined)}
+                    onClick={() => {
+                      setImportChildIsSelected(false);
+                      setSelectedRecordId(undefined);
+                    }}
                   />
+                  {importChildId !== undefined && (
+                    <SidebarItem
+                      status={(() => {
+                        const status =
+                          jobInfos[token].report?.children[importChildId]
+                            ?.progress?.status;
+                        if (status === undefined || status === "queued")
+                          return "waiting";
+                        if (status === "running") return "running";
+                        if (status === "aborted") return "failure";
+                        if (
+                          status === "completed" &&
+                          jobInfos[token].report?.children[importChildId]?.data
+                            ?.success
+                        )
+                          return "success";
+                        return "failure";
+                      })()}
+                      active={
+                        selectedRecordId === undefined && importChildIsSelected
+                      }
+                      text={t("Import")}
+                      onClick={() => {
+                        setSelectedRecordId(undefined);
+                        setImportChildIsSelected(true);
+                      }}
+                    />
+                  )}
                   {Object.keys(jobInfos[token].report?.data?.records ?? {})
                     .length > 0 ? (
                     <hr />
@@ -471,11 +663,14 @@ export default function MonitorJobModal({
                       text={recordId}
                       active={selectedRecordId === recordId}
                       subtext={getValueOrFirstFromArray(
-                        jobInfos[token].report?.children[
-                          record.stages?.build_ip?.logId ?? ""
-                        ]?.data?.details?.mapping?.metadata?.["DC-Title"]
+                        jobInfos[token].report?.children?.[
+                          record.stages?.validation_metadata?.logId ?? ""
+                        ]?.data?.bagInfoMetadata?.["DC-Title"]?.[0]
                       )}
-                      onClick={() => setSelectedRecordId(recordId)}
+                      onClick={() => {
+                        setImportChildIsSelected(false);
+                        setSelectedRecordId(recordId);
+                      }}
                     />
                   ))}
                 </div>
@@ -496,129 +691,60 @@ export default function MonitorJobModal({
                   className="w-full px-5 py-3 overflow-y-auto border-2 rounded"
                 >
                   {selectedRecordId !== undefined &&
-                  jobInfos[token]?.report?.data?.records?.[selectedRecordId] !==
-                    undefined ? (
-                    <Timeline>
-                      {StageOrder.map((stage) =>
-                        jobInfos[token].report?.data?.records?.[
-                          selectedRecordId
-                        ].stages?.[stage] ? (
-                          <TimelineItem key={selectedRecordId + stage}>
-                            <TimelinePoint
-                              theme={getTimelinePointTheme(
-                                jobInfos[token].report?.data?.records?.[
-                                  selectedRecordId
-                                ]?.stages?.[stage]?.success
-                              )}
-                              icon={
-                                jobInfos[token].report?.data?.records?.[
-                                  selectedRecordId
-                                ]?.stages?.[stage]?.success === undefined
-                                  ? FiCircle
-                                  : jobInfos[token].report?.data?.records?.[
-                                      selectedRecordId
-                                    ]?.stages?.[stage]?.success
-                                  ? FiCheck
-                                  : FiAlertTriangle
-                              }
-                            />
-                            <TimelineContent>
-                              <TimelineTime>
-                                {
+                    jobInfos[token]?.report?.data?.records?.[
+                      selectedRecordId
+                    ] !== undefined && (
+                      <Timeline>
+                        {StageOrder.map((stage) =>
+                          jobInfos[token].report?.data?.records?.[
+                            selectedRecordId
+                          ].stages?.[stage] ? (
+                            <TimelineItem key={selectedRecordId + stage}>
+                              <TimelinePoint
+                                theme={getTimelinePointTheme(
                                   jobInfos[token].report?.data?.records?.[
                                     selectedRecordId
-                                  ]?.stages?.[stage]?.logId
+                                  ]?.stages?.[stage]?.success
+                                )}
+                                icon={
+                                  jobInfos[token].report?.data?.records?.[
+                                    selectedRecordId
+                                  ]?.stages?.[stage]?.success === undefined
+                                    ? FiCircle
+                                    : jobInfos[token].report?.data?.records?.[
+                                        selectedRecordId
+                                      ]?.stages?.[stage]?.success
+                                    ? FiCheck
+                                    : FiAlertTriangle
                                 }
-                              </TimelineTime>
-                              <TimelineTitle>
-                                {getStageTitle(stage)}
-                              </TimelineTitle>
-                              <TimelineBody>
-                                <List>
-                                  {(
+                              />
+                              <TimelineContent>
+                                <TimelineTime>
+                                  {
+                                    jobInfos[token].report?.data?.records?.[
+                                      selectedRecordId
+                                    ]?.stages?.[stage]?.logId
+                                  }
+                                </TimelineTime>
+                                <TimelineTitle>
+                                  {getStageTitle(stage)}
+                                </TimelineTitle>
+                                <Log
+                                  report={
                                     jobInfos[token].report?.children[
                                       jobInfos[token].report?.data?.records?.[
                                         selectedRecordId
                                       ]?.stages?.[stage]?.logId || ""
-                                    ]?.log?.INFO || []
-                                  ).map((msg, index) => (
-                                    <List.Item
-                                      key={
-                                        selectedRecordId +
-                                        stage +
-                                        msg.datetime +
-                                        "-info" +
-                                        index
-                                      }
-                                    >
-                                      <span className="font-semibold mr-2">
-                                        {msg.origin}
-                                      </span>
-                                      {msg.body}
-                                    </List.Item>
-                                  ))}
-                                </List>
-                              </TimelineBody>
-                              <TimelineBody>
-                                <List>
-                                  {(
-                                    jobInfos[token].report?.children[
-                                      jobInfos[token].report?.data?.records?.[
-                                        selectedRecordId
-                                      ]?.stages?.[stage]?.logId || ""
-                                    ]?.log?.WARNING || []
-                                  ).map((msg, index) => (
-                                    <List.Item
-                                      key={
-                                        selectedRecordId +
-                                        stage +
-                                        msg.datetime +
-                                        "-warning" +
-                                        index
-                                      }
-                                      className="text-yellow-500"
-                                    >
-                                      <span className="font-semibold mr-2">
-                                        {msg.origin}
-                                      </span>
-                                      {msg.body}
-                                    </List.Item>
-                                  ))}
-                                </List>
-                              </TimelineBody>
-                              <TimelineBody>
-                                <List>
-                                  {(
-                                    jobInfos[token].report?.children[
-                                      jobInfos[token].report?.data?.records?.[
-                                        selectedRecordId
-                                      ]?.stages?.[stage]?.logId || ""
-                                    ]?.log?.ERROR || []
-                                  ).map((msg, index) => (
-                                    <List.Item
-                                      key={
-                                        selectedRecordId +
-                                        stage +
-                                        msg.datetime +
-                                        "-error" +
-                                        index
-                                      }
-                                      className="text-red-600"
-                                    >
-                                      <span className="font-semibold mr-2">
-                                        {msg.origin}
-                                      </span>
-                                      {msg.body}
-                                    </List.Item>
-                                  ))}
-                                </List>
-                              </TimelineBody>
-                            </TimelineContent>
-                          </TimelineItem>
-                        ) : null
-                      )}
-                    </Timeline>
-                  ) : (
+                                    ]
+                                  }
+                                />
+                              </TimelineContent>
+                            </TimelineItem>
+                          ) : null
+                        )}
+                      </Timeline>
+                    )}
+                  {selectedRecordId === undefined && !importChildIsSelected && (
                     <Timeline>
                       <TimelineItem>
                         <TimelinePoint
@@ -638,71 +764,40 @@ export default function MonitorJobModal({
                           <TimelineTitle>
                             {getStageTitle("process")}
                           </TimelineTitle>
-                          <TimelineBody>
-                            <List>
-                              {(jobInfos[token].report?.log?.INFO || []).map(
-                                (msg, index) => (
-                                  <List.Item
-                                    key={
-                                      jobInfos[token].token +
-                                      msg.datetime +
-                                      "-info" +
-                                      index
-                                    }
-                                  >
-                                    <span className="font-semibold mr-2">
-                                      {msg.origin}
-                                    </span>
-                                    {msg.body}
-                                  </List.Item>
-                                )
-                              )}
-                            </List>
-                          </TimelineBody>
-                          <TimelineBody>
-                            <List>
-                              {(jobInfos[token].report?.log?.WARNING || []).map(
-                                (msg, index) => (
-                                  <List.Item
-                                    key={
-                                      jobInfos[token].token +
-                                      msg.datetime +
-                                      "-warning" +
-                                      index
-                                    }
-                                    className="text-yellow-500"
-                                  >
-                                    <span className="font-semibold mr-2">
-                                      {msg.origin}
-                                    </span>
-                                    {msg.body}
-                                  </List.Item>
-                                )
-                              )}
-                            </List>
-                          </TimelineBody>
-                          <TimelineBody>
-                            <List>
-                              {(jobInfos[token].report?.log?.ERROR || []).map(
-                                (msg, index) => (
-                                  <List.Item
-                                    key={
-                                      jobInfos[token].token +
-                                      msg.datetime +
-                                      "-error" +
-                                      index
-                                    }
-                                    className="text-red-600"
-                                  >
-                                    <span className="font-semibold mr-2">
-                                      {msg.origin}
-                                    </span>
-                                    {msg.body}
-                                  </List.Item>
-                                )
-                              )}
-                            </List>
-                          </TimelineBody>
+                          <Log report={jobInfos[token].report} />
+                        </TimelineContent>
+                      </TimelineItem>
+                    </Timeline>
+                  )}
+                  {selectedRecordId === undefined && importChildIsSelected && (
+                    <Timeline>
+                      <TimelineItem>
+                        <TimelinePoint
+                          theme={getTimelinePointTheme(
+                            jobInfos[token].report?.children[
+                              importChildId ?? ""
+                            ]?.data?.success
+                          )}
+                          icon={
+                            jobInfos[token].report?.data?.success === undefined
+                              ? FiCircle
+                              : jobInfos[token].report?.data?.success
+                              ? FiCheck
+                              : FiAlertTriangle
+                          }
+                        />
+                        <TimelineContent>
+                          <TimelineTime>{importChildId}</TimelineTime>
+                          <TimelineTitle>
+                            {getStageTitle("import")}
+                          </TimelineTitle>
+                          <Log
+                            report={
+                              jobInfos[token].report?.children[
+                                importChildId ?? ""
+                              ]
+                            }
+                          />
                         </TimelineContent>
                       </TimelineItem>
                     </Timeline>

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button, Spinner } from "flowbite-react";
 
 import t from "../../utils/translation";
+import { genericSort } from "../../utils/genericSort";
 import { IE, JobInfo } from "../../types";
 import { credentialsValue, host } from "../../App";
 import MessageBox, { useMessageHandler } from "../../components/MessageBox";
@@ -88,9 +89,36 @@ export default function DownloadReportsModal({
       if (!abort.current) {
         setStatus("");
         setRunning(false);
+        const result: any = { ...ie, records: [] };
+        for (const record of Object.values(ie.records ?? {}).sort(
+          genericSort({ getValue: (r) => r.datetimeChanged, direction: "desc" })
+        )) {
+          result.records.push({
+            ...record,
+            stages: {
+              ...Object.fromEntries(
+                Object.entries(
+                  jobInfos[record.jobToken ?? ""]?.report?.data.records[
+                    record.id
+                  ]?.stages ?? {}
+                ).map(([stageId, stageInfo]) => [
+                  stageId,
+                  {
+                    ...stageInfo,
+                    logId: undefined,
+                    report:
+                      jobInfos[record.jobToken ?? ""]?.report?.children?.[
+                        stageInfo.logId ?? ""
+                      ],
+                  },
+                ])
+              ),
+            },
+          });
+        }
+
         setDataUrl(
-          "data:application/json," +
-            encodeURIComponent(JSON.stringify(jobInfos))
+          "data:application/json," + encodeURIComponent(JSON.stringify(result))
         );
       }
     })();
