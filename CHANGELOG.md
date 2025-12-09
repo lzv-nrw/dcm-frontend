@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.3] - 2025-12-09
+
+### Fixed
+
+- fixed field name for `Preservation-Level` in the column in `JobDetailsScreen`
+- fixed field name for `Preservation-Level` in `PRESERVATION_FIELDS_CONFIGURATION`
+- fixed initial scheduler assignment allowed past dates
+
 ## [1.0.0] - 2025-12-05
 
 ### Changed

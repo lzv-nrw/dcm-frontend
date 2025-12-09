@@ -33,6 +33,7 @@ import {
   Scheduling,
   SchedulingFormChildren,
   SchedulingFormValidator,
+  validateSchedulingDateTime,
 } from "./SchedulingForm";
 import { formatDateToISOString } from "../../../utils/dateTime";
 import { operationTypeOrder } from "../../../components/OperationsForm/types";
@@ -57,6 +58,7 @@ type FormValidator = Validator<FormChildren>;
 
 export interface FormStore extends FormData {
   validator: FormValidator;
+  skipSchedulerValidation: boolean;
   setCurrentValidationReport: (
     report: ValidationReportWithChildren<FormChildren>
   ) => void;
@@ -174,9 +176,21 @@ export const useFormStore = create<FormStore>()((set, get) => ({
             return {};
           }
         ),
+        children: {
+          datetime: {
+            validate: (strict: boolean) =>
+              validateSchedulingDateTime(
+                strict,
+                get().scheduling?.date,
+                get().scheduling?.time,
+                get().skipSchedulerValidation
+              ),
+          },
+        },
       } as SchedulingFormValidator,
     },
   } as FormValidator,
+  skipSchedulerValidation: false,
   setCurrentValidationReport: (report) =>
     set({
       validator: mergeValidationReportIntoChildren(get().validator, report),
@@ -280,7 +294,9 @@ export const useFormStore = create<FormStore>()((set, get) => ({
           },
           true
         );
+        set({ skipSchedulerValidation: false });
       } else {
+        set({ skipSchedulerValidation: true });
         if (config.schedule.repeat === undefined)
           store.setScheduling(
             {
@@ -308,7 +324,7 @@ export const useFormStore = create<FormStore>()((set, get) => ({
           );
         }
       }
-    }
+    } else set({ skipSchedulerValidation: false });
   },
   formatToConfig: (status, template) => {
     const store = get();

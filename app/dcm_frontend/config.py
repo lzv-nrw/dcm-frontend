@@ -238,8 +238,8 @@ class AppConfig(BaseConfig):
         },
     }
     PRESERVATION_FIELDS_CONFIGURATION = {
-        "Preservation Level": {
-            "label": "Preservation Level",
+        "Preservation-Level": {
+            "label": "Preservation-Level",
             "type": "select",
             "options": [
                 {

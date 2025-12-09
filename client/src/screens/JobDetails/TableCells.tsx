@@ -64,7 +64,7 @@ export function PreservationLevelCell({ ie }: TableCellProps) {
     );
   return (
     <Table.Cell>
-      {ie?.bagInfoMetadata?.["Preservation Level"]?.[0] ?? "-"}
+      {ie?.bagInfoMetadata?.["Preservation-Level"]?.[0] ?? "-"}
     </Table.Cell>
   );
 }

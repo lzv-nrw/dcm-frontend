@@ -9,7 +9,7 @@ import Datepicker from "../../../components/Datepicker";
 import Timepicker from "../../../components/Timepicker";
 import { useFormStore } from "./store";
 
-export type SchedulingFormChildren = never;
+export type SchedulingFormChildren = "datetime";
 export type SchedulingFormValidator = Validator<SchedulingFormChildren>;
 
 export type ScheduleType = "onetime" | "day" | "week" | "month";
@@ -43,6 +43,27 @@ export function combineDateAndTime(date?: Date, time?: Date): Date | undefined {
     time.getHours(),
     time.getMinutes()
   );
+}
+
+export function validateSchedulingDateTime(
+  strict: boolean,
+  date?: Date,
+  time?: Date,
+  skip?: boolean
+) {
+  if (skip) return { ok: true };
+
+  const combined = combineDateAndTime(date, time);
+  if (combined && combined < new Date()) {
+    return {
+      ok: false,
+      errors: [
+        t("Startdatum und Uhrzeit dürfen nicht in der Vergangenheit liegen."),
+      ],
+    };
+  }
+
+  return { ok: true };
 }
 
 export function SchedulingForm({ name, active }: FormSectionComponentProps) {
