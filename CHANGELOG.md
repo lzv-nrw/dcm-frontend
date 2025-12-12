@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.5] - 2025-12-12
+
+### Fixed
+
+- fixed report data generation; now creating a blob from the JSON to ensure cross-browser compatibility
+- fixed report generation for batch jobs
+
 ## [1.0.3] - 2025-12-09
 
 ### Fixed

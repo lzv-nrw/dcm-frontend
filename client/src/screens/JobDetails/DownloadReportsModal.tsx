@@ -118,7 +118,11 @@ export default function DownloadReportsModal({
         }
 
         setDataUrl(
-          "data:application/json," + encodeURIComponent(JSON.stringify(result))
+          URL.createObjectURL(
+            new Blob([JSON.stringify(result, null, 2)], {
+              type: "application/json",
+            })
+          )
         );
       }
     })();

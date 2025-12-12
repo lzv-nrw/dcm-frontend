@@ -227,6 +227,23 @@ export function ActionsCell({ config, onModalStateChange }: TableCellProps) {
     // eslint-disable-next-line
   }, [showCUModal, showMonitorJobModal]);
 
+  // fetch jobinfo for report if context menu open
+  useEffect(() => {
+    if (!openContextMenu) return;
+
+    const tokensCollection = jobInfos[config?.latestExec ?? ""]?.collection
+      ?.tokens ?? [config?.latestExec ?? ""];
+    if (tokensCollection.length > 0) {
+      tokensCollection.forEach((token) => {
+        fetchJobInfo({
+          token,
+          forceReload: true,
+        });
+      });
+    }
+    // eslint-disable-next-line
+  }, [openContextMenu]);
+
   function submitJob() {
     if (!config) return;
     setLoadingJobExecution(true);
@@ -279,14 +296,30 @@ export function ActionsCell({ config, onModalStateChange }: TableCellProps) {
         ? [
             {
               children: t(getActionTitle("download", "Report")),
-              onClick: () =>
-                window.open(
-                  "data:application/json," +
-                    encodeURIComponent(
-                      JSON.stringify(jobInfos[config.latestExec ?? ""])
-                    ),
-                  "_blank"
-                ),
+              onClick: () => {
+                const latestExec = config.latestExec;
+                if (!latestExec) return;
+
+                const tokensCollection = (jobInfos[latestExec] ?? "").collection
+                  ?.tokens ?? [latestExec];
+
+                // Collect all reports
+                const combinedReports: Record<string, any> = {};
+
+                tokensCollection.forEach((token) => {
+                  if (!jobInfos[token]) return;
+                  combinedReports[token] = jobInfos[token];
+                });
+
+                // create Blob from JSON
+                const blob = new Blob(
+                  [JSON.stringify(combinedReports, null, 2)],
+                  { type: "application/json" }
+                );
+
+                // Open report in the browser tab
+                window.open(URL.createObjectURL(blob), "_blank");
+              },
             },
           ]
         : []),
