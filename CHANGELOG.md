@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.6] - 2025-12-16
+
+### Fixed
+
+- prevented report download until job execution finishes and reports are available
+
 ## [1.0.5] - 2025-12-12
 
 ### Fixed

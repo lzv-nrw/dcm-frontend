@@ -222,27 +222,70 @@ export function ActionsCell({ config, onModalStateChange }: TableCellProps) {
   const [token, setToken] = useState<string | null>(null);
   const [showMonitorJobModal, setShowMonitorJobModal] = useState(false);
 
+  const [fetchedTokens, setFetchedTokens] = useState<Set<string>>(new Set());
+  const [allReportsReady, setAllreportsReady] = useState<boolean>(false);
+
   useEffect(() => {
     onModalStateChange?.(showCUModal || showMonitorJobModal);
     // eslint-disable-next-line
   }, [showCUModal, showMonitorJobModal]);
 
-  // fetch jobinfo for report if context menu open
+  // Fetch job info for the report when the context menu is open and the job is not running
   useEffect(() => {
     if (!openContextMenu) return;
+    if (
+      ["queued", "running"].includes(
+        jobInfos[config?.latestExec ?? ""]?.status ?? ""
+      )
+    )
+      return;
 
     const tokensCollection = jobInfos[config?.latestExec ?? ""]?.collection
       ?.tokens ?? [config?.latestExec ?? ""];
+
+    // Reset on re-opening
+    setFetchedTokens(new Set());
+
     if (tokensCollection.length > 0) {
       tokensCollection.forEach((token) => {
         fetchJobInfo({
           token,
           forceReload: true,
+          onSuccess: () => {
+            setFetchedTokens((prev) => {
+              const newSet = new Set(prev);
+              newSet.add(token);
+              return newSet;
+            });
+          },
+          onFail: (error) => {
+            setFetchedTokens((prev) => {
+              const newSet = new Set(prev);
+              newSet.add(token);
+              return newSet;
+            });
+            errorHandler?.pushMessage({
+              id: `submit-${token}`,
+              text: t(`Ein Fehler ist aufgetreten: ${error}`),
+            });
+          },
         });
       });
     }
+
     // eslint-disable-next-line
-  }, [openContextMenu]);
+  }, [openContextMenu, config?.latestExec]);
+
+  useEffect(() => {
+    setAllreportsReady(
+      (
+        jobInfos[config?.latestExec ?? ""]?.collection?.tokens ?? [
+          config?.latestExec ?? "",
+        ]
+      ).length === fetchedTokens.size
+    );
+    // eslint-disable-next-line
+  }, [fetchedTokens]);
 
   function submitJob() {
     if (!config) return;
@@ -292,11 +335,27 @@ export function ActionsCell({ config, onModalStateChange }: TableCellProps) {
 
   function contextMenuItems() {
     return [
-      ...(acl?.READ_JOB && config?.latestExec
+      ...(acl?.READ_JOB &&
+      config?.latestExec &&
+      !["queued", "running"].includes(
+        jobInfos[config?.latestExec ?? ""]?.status ?? ""
+      )
         ? [
             {
-              children: t(getActionTitle("download", "Report")),
+              children: (
+                <>
+                  <span
+                    className={
+                      !allReportsReady ? "text-gray-400 cursor-wait" : ""
+                    }
+                  >
+                    {t(getActionTitle("download", "Report"))}
+                  </span>
+                  {!allReportsReady && <Spinner className="ml-2" />}
+                </>
+              ),
               onClick: () => {
+                if (!allReportsReady) return;
                 const latestExec = config.latestExec;
                 if (!latestExec) return;
 
